@@ -79,6 +79,8 @@ async def main():
     asyncio.create_task(scheduler.start())
     asyncio.create_task(wifi_mgr.keepalive_loop(rgb_mgr))
     asyncio.create_task(heartbeat_loop())
+    if not wifi_mgr.is_connected:
+        asyncio.create_task(wifi_mgr.dns_server.run())
     
     btn_watcher = BootButtonWatcher(wifi_mgr, config_mgr, rgb_manager=rgb_mgr)
     asyncio.create_task(btn_watcher.start())

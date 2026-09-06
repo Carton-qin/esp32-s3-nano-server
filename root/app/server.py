@@ -94,10 +94,23 @@ def create_app(config_mgr, wifi_mgr, llm_client, notifier, executor, rgb_manager
             }
         )
 
+    # Captive portal detection probes for Apple iOS / Android / Windows
+    @app.route('/hotspot-detect.html')
+    @app.route('/generate_204')
+    @app.route('/gen_204')
+    @app.route('/ncsi.txt')
+    @app.route('/connecttest.txt')
+    @app.route('/canonical.html')
+    @app.route('/success.txt')
+    async def captive_portal_probe(req):
+        if not wifi_mgr.is_connected:
+            return Response.redirect('http://192.168.4.1/')
+        return Response(body="", status_code=204)
+
     # Captive portal for AP mode
     @app.errorhandler(404)
     async def not_found(req):
-        if wifi_mgr.mode == "AP" and not req.path.startswith("/api/"):
+        if not wifi_mgr.is_connected and not req.path.startswith("/api/"):
             return Response.redirect('http://192.168.4.1/')
         return json_resp({"error": "Not found"}, 404)
 

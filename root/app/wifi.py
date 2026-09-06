@@ -6,6 +6,56 @@ import ubinascii
 import ntptime
 import esp32
 
+class CaptiveDNS:
+    def __init__(self, ip="192.168.4.1"):
+        self.ip = ip
+        self.ip_bytes = bytes([int(x) for x in ip.split('.')])
+        self.running = False
+        self.sock = None
+
+    async def run(self):
+        self.running = True
+        try:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sock.setblocking(False)
+            self.sock.bind(('0.0.0.0', 53))
+            print("[DNS] Captive Portal DNS server active on port 53 (Catch-all -> " + self.ip + ")")
+        except Exception as e:
+            print("[DNS] Note: UDP 53 bind notice:", e)
+            return
+
+        try:
+            import uasyncio as asyncio
+        except ImportError:
+            import asyncio
+
+        while self.running:
+            try:
+                data, addr = self.sock.recvfrom(512)
+                if data and len(data) >= 12:
+                    resp = (
+                        data[:2] + b'\x81\x80' + data[4:6] +
+                        b'\x00\x01\x00\x00\x00\x00' +
+                        data[12:] +
+                        b'\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x3c\x00\x04' +
+                        self.ip_bytes
+                    )
+                    self.sock.sendto(resp, addr)
+            except OSError:
+                pass
+            except Exception:
+                pass
+            await asyncio.sleep(0.05)
+
+    def stop(self):
+        self.running = False
+        if self.sock:
+            try:
+                self.sock.close()
+            except Exception:
+                pass
+            self.sock = None
+
 class WiFiManager:
     def __init__(self, config_mgr):
         self.config_mgr = config_mgr
@@ -16,6 +66,7 @@ class WiFiManager:
         self.current_ip = "0.0.0.0"
         self.mode = "NONE"
         self.ntp_synced = False
+        self.dns_server = CaptiveDNS("192.168.4.1")
 
     def set_hostname(self, name="esp32"):
         try:
@@ -72,6 +123,11 @@ class WiFiManager:
         target_pwd = (password if password is not None else ap_cfg.get("password", "")).strip()
 
         self.ap.active(True)
+        try:
+            self.ap.ifconfig(('192.168.4.1', '255.255.255.0', '192.168.4.1', '192.168.4.1'))
+        except Exception:
+            pass
+
         if target_pwd and len(target_pwd) >= 8:
             self.ap.config(essid=target_ssid, password=target_pwd, authmode=network.AUTH_WPA2_PSK)
         else:
