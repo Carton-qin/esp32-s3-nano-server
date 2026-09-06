@@ -11,10 +11,21 @@ import time
 import argparse
 import subprocess
 
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+if hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 def print_banner():
     print("""
 ============================================================
-   🚀 ESP32 / ESP32-S3 / ESP32-C3 Nano-Server 一键部署工具
+   [*] ESP32 / ESP32-S3 / ESP32-C3 Nano-Server 一键部署工具
 ============================================================
 """)
 
@@ -147,7 +158,7 @@ def upload_project(port):
             text=True
         )
         if res.returncode != 0:
-            print(" ❌ 失败！")
+            print(" [X] 失败！")
             print(f"[!] 上传文件 {local_fp} 失败:\n{res.stderr.strip()}")
             return False
         dt = time.time() - t0
@@ -221,7 +232,7 @@ def main():
 
     print("""
 ============================================================
-  🎉 部署成功！后续使用说明：
+  [+] 部署成功！后续使用说明：
 ============================================================
   1. 初始网络连接：
      - 若已配置 WiFi，打开浏览器访问: http://esp32.local 或分配的内网 IP
