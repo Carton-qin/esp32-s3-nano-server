@@ -132,22 +132,27 @@ pip install -r requirements.txt
 
 ### 步骤 2：连接开发板并一键部署
 
-将 ESP32-S3 或 ESP32-C3 开发板通过 Type-C 数据线连接至电脑 USB 口：
+将 ESP32-S3、ESP32-C3 或标准 ESP32 开发板通过 Type-C 数据线连接至电脑 USB 口：
 
 ```bash
-# 自动检测串口并部署系统（若开发板已刷有 MicroPython）：
+# 1. 自动检测串口并部署系统（若开发板已刷有 MicroPython）：
 python deploy.py
 
-# 若是一块全新的开发板（全自动芯片识别 + 擦除 Flash + 智能烧录对应固件 + 传输代码）：
+# 2. 若是一块全新的开发板（全自动芯片识别 + 擦除 Flash + 智能烧录对应固件 + 传输代码）：
 python deploy.py --flash
+
+# 3. 极速配网：部署完成后直接通过 USB 串口写入 WiFi（部署完开发板秒连 WiFi，无需手机搜热点）：
+python deploy.py --wifi "你的WiFi名称" "你的WiFi密码"
 ```
 
 > 💡 **小贴士**：
 > - `deploy.py` 会**自动扫描串口**并**自动识别芯片架构**（ESP32-S3 / ESP32-C3 / 经典 ESP32）；
-> - 仓库内已预置乐鑫官方最新版固件：
+> - 仓库内已预置乐鑫官方最新版固件（位于 `firmware/` 目录）：
 >   * ESP32-S3 固件：`ESP32_GENERIC_S3-SPIRAM_OCT-20260824-v1.29.0.bin`
 >   * ESP32-C3 固件：`ESP32_GENERIC_C3-20260824-v1.29.0.bin`
-> - `deploy.py --flash` 会自动根据所插开发板类型，智能挑选正确的固件一键烧录！也可以通过 `--port COMx`（Windows）或 `--port /dev/ttyUSB0`（macOS/Linux）手动指定串口。
+>   * 经典 ESP32 固件：`ESP32_GENERIC-20260824-v1.29.0.bin`
+> - `deploy.py --flash` 会自动根据所插开发板类型，智能挑选正确的固件一键烧录！也可以通过 `--port COMx`（Windows）或 `--port /dev/ttyUSB0`（macOS/Linux）手动指定串口；
+> - **内存深度优化**：仓库已内置全量预编译字节码（`.mpy`），并在部署时优先上传 `.mpy` 替代 raw `.py`。即便在无外部 PSRAM 的单核 ESP32-C3（仅 160KB RAM）或经典 ESP32 上，也拥有充裕的可用堆内存，绝不发生 `MemoryError`。
 
 ---
 

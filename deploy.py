@@ -92,9 +92,12 @@ def flash_micropython(port, chip_type, bin_path):
     print(f"\n[*] 正在准备为 {chip_type.upper()} 烧录 MicroPython 固件: {bin_path}")
     print("[*] 步骤 1/2: 擦除 Flash 闪存...")
     chip_arg = ["--chip", chip_type] if chip_type != "auto" else []
-    erase_cmd = [sys.executable, "-m", "esptool"] + chip_arg + ["--port", port, "erase_flash"]
+    erase_cmd = [sys.executable, "-m", "esptool"] + chip_arg + ["--port", port, "erase-flash"]
     if not run_cmd(erase_cmd, "擦除芯片闪存"):
-        return False
+        # 兼容旧版本 esptool
+        erase_cmd = [sys.executable, "-m", "esptool"] + chip_arg + ["--port", port, "erase_flash"]
+        if not run_cmd(erase_cmd, "擦除芯片闪存 (重试)"):
+            return False
 
     print("[*] 步骤 2/2: 写入固件...")
     offset = "0" if chip_type in ("esp32s3", "esp32c3", "esp32c6", "esp32s2") else "0x1000"
@@ -112,12 +115,39 @@ def flash_micropython(port, chip_type, bin_path):
     time.sleep(3)
     return True
 
+def ensure_mpy_compiled(base_dir):
+    """如果安装了 mpy-cross，自动编译 app 和 microdot 目录下的 .py 文件为 .mpy，极大节省板载 RAM 内存"""
+    try:
+        res = subprocess.run([sys.executable, "-m", "mpy_cross", "--version"], capture_output=True, text=True)
+        has_mpy = (res.returncode == 0)
+    except Exception:
+        has_mpy = False
+
+    if not has_mpy:
+        return
+
+    print("[*] 检测到 mpy-cross 编译器，正在检查并预编译 Python 字节码以优化内存...")
+    for subdir in ["app", "microdot"]:
+        target_path = os.path.join(base_dir, subdir)
+        if not os.path.exists(target_path):
+            continue
+        for root, _, files in os.walk(target_path):
+            for f in files:
+                if f.endswith(".py") and f != "__init__.py":
+                    py_path = os.path.join(root, f)
+                    mpy_path = os.path.splitext(py_path)[0] + ".mpy"
+                    if not os.path.exists(mpy_path) or os.path.getmtime(py_path) > os.path.getmtime(mpy_path):
+                        subprocess.run([sys.executable, "-m", "mpy_cross", py_path], capture_output=True)
+
 def upload_project(port):
     """上传项目源码及静态资源到开发板"""
     base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "root")
     if not os.path.exists(base_dir):
         print(f"[!] 找不到源码目录: {base_dir}")
         return False
+
+    # 尝试自动预编译字节码
+    ensure_mpy_compiled(base_dir)
 
     print(f"\n[*] 正在连接串口 {port} 并准备上传项目代码...")
     
@@ -131,16 +161,29 @@ def upload_project(port):
     for rd in remote_dirs:
         subprocess.run([sys.executable, "-m", "mpremote", "connect", port, "fs", "mkdir", rd], capture_output=True)
 
-    # 2. 收集本地文件列表并规划上传顺序（main.py 必须在最后上传）
-    file_queue = []
+    # 2. 收集本地文件列表（若存在 .mpy，则优先使用 .mpy 并跳过同名 .py 以节省内存）
+    all_files = []
     for root, _, files in os.walk(base_dir):
         for f in files:
             if f.endswith(".pyc") or "__pycache__" in root:
                 continue
-            local_fp = os.path.join(root, f)
-            rel = os.path.relpath(local_fp, base_dir).replace("\\", "/")
-            remote_fp = f":{rel}"
-            file_queue.append((local_fp, remote_fp, rel))
+            all_files.append((root, f))
+
+    mpy_stems = set()
+    for root, f in all_files:
+        if f.endswith(".mpy"):
+            mpy_stems.add(os.path.join(root, os.path.splitext(f)[0]))
+
+    file_queue = []
+    for root, f in all_files:
+        local_fp = os.path.join(root, f)
+        stem_path = os.path.splitext(local_fp)[0]
+        # 跳过已被 .mpy 替代的 .py 文件（保留 boot.py, main.py 与 __init__.py）
+        if f.endswith(".py") and f not in ("main.py", "boot.py", "__init__.py") and stem_path in mpy_stems:
+            continue
+        rel = os.path.relpath(local_fp, base_dir).replace("\\", "/")
+        remote_fp = f":{rel}"
+        file_queue.append((local_fp, remote_fp, rel))
 
     # 将 main.py 挪至队列最末尾
     file_queue.sort(key=lambda x: (x[2] == "main.py", x[2] == "boot.py", x[2]))
@@ -164,9 +207,26 @@ def upload_project(port):
         dt = time.time() - t0
         print(f" 耗时 {dt:.1f}s")
 
+    # 清理远程设备上已被 .mpy 取代的旧 .py 文件以彻底释放闪存与运行时内存
+    clean_script = (
+        "import os\n"
+        "for d in ['app', 'microdot']:\n"
+        "    try:\n"
+        "        files = os.listdir(d)\n"
+        "        for f in files:\n"
+        "            if f.endswith('.py') and f != '__init__.py':\n"
+        "                if (f[:-3] + '.mpy') in files:\n"
+        "                    os.remove(d + '/' + f)\n"
+        "    except Exception:\n"
+        "        pass\n"
+    )
+    subprocess.run([sys.executable, "-m", "mpremote", "connect", port, "exec", clean_script], capture_output=True)
+
     print("\n[*] 全部核心文件同步完成！正在重启开发板...")
     subprocess.run([sys.executable, "-m", "mpremote", "connect", port, "reset"])
     print("[+] 部署圆满完成！开发板已重启并运行新系统。")
+    return True
+
 def configure_wifi_via_serial(port, ssid, password):
     """直接通过 USB 串口写入 WiFi 配置"""
     print(f"[*] 正在通过串口 {port} 为开发板写入 WiFi 配置 (SSID: '{ssid}') ...", flush=True)
