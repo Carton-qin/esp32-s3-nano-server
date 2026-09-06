@@ -1,0 +1,3409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP32-S3 Nano-Server 控制台</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ESP32控制台">
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="icon" type="image/png" href="/static/icon-192.png">
+<style>
+:root {
+  --bg-primary: #0f172a;
+  --bg-card: #1e293b;
+  --bg-card-hover: #334155;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent: #38bdf8;
+  --accent-glow: rgba(56, 189, 248, 0.2);
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --border: #334155;
+  --radius: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+body { background-color: var(--bg-primary); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+header { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 14px 24px; position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between; }
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.15rem; color: #fff; }
+.logo-badge { background: linear-gradient(135deg, #0284c7, #38bdf8); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; }
+.nav-status { display: flex; align-items: center; gap: 12px; font-size: 0.85rem; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 9999px; font-weight: 500; font-size: 0.75rem; background: var(--bg-card); border: 1px solid var(--border); }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot-green { background-color: var(--success); box-shadow: 0 0 8px var(--success); }
+.dot-red { background-color: var(--danger); box-shadow: 0 0 8px var(--danger); }
+.dot-yellow { background-color: var(--warning); box-shadow: 0 0 8px var(--warning); }
+.tabs-bar { display: flex; gap: 6px; background: var(--bg-card); padding: 6px; border-radius: 10px; margin: 20px 24px 0; border: 1px solid var(--border); overflow-x: auto; }
+.tab-btn { background: transparent; border: none; color: var(--text-muted); padding: 8px 16px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.tab-btn:hover { color: #fff; background: var(--bg-card-hover); }
+.tab-btn.active { background: var(--accent); color: #0f172a; box-shadow: 0 0 12px var(--accent-glow); }
+main { flex: 1; padding: 20px 24px 40px; max-width: 1200px; margin: 0 auto; width: 100%; }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; animation: fadeIn 0.2s ease-in-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; position: relative; }
+.card-title { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+.card-value { font-size: 1.55rem; font-weight: 700; color: #fff; margin-bottom: 8px; }
+.progress-bar { width: 100%; height: 6px; background: #334155; border-radius: 9999px; overflow: hidden; margin-top: 8px; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 9999px; transition: width 0.4s ease; }
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.section-title { font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
+.btn-primary { background: var(--accent); color: #0f172a; }
+.btn-primary:hover { background: #7dd3fc; }
+.btn-secondary { background: #334155; color: #fff; }
+.btn-secondary:hover { background: #475569; }
+.btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border-color: rgba(239, 68, 68, 0.3); }
+.btn-danger:hover { background: var(--danger); color: #fff; }
+.btn-sm { padding: 4px 10px; font-size: 0.78rem; }
+.task-list { display: flex; flex-direction: column; gap: 12px; }
+.task-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+.task-main-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; }
+.task-card:hover { border-color: var(--accent); }
+.task-info { flex: 1; min-width: 0; }
+.task-name { font-weight: 700; font-size: 1rem; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.task-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 12px; flex-wrap: wrap; }
+.task-actions { display: flex; gap: 8px; align-items: center; }
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+.form-control { width: 100%; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 0.9rem; color: #fff; outline: none; transition: border-color 0.2s; }
+.form-control:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+textarea.form-control { resize: vertical; min-height: 80px; font-family: monospace; font-size: 0.82rem; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .3s; border-radius: 24px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+input:checked + .slider { background-color: var(--accent); }
+input:checked + .slider:before { transform: translateX(20px); }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+.modal-overlay.active { display: flex; }
+.modal-content { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+.modal-title { font-size: 1.15rem; font-weight: 700; }
+.modal-close { background: transparent; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.info-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.88rem; }
+.info-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+.info-table tr:last-child td { border-bottom: none; }
+.info-table td:first-child { color: var(--text-muted); width: 35%; }
+.info-table td:last-child { font-weight: 600; color: #fff; }
+.log-item { background: #0f172a; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; border-left: 4px solid var(--border); font-size: 0.85rem; }
+.log-item.success { border-left-color: var(--success); }
+.log-item.fail { border-left-color: var(--danger); }
+.log-header { display: flex; justify-content: space-between; margin-bottom: 4px; color: var(--text-muted); font-size: 0.75rem; }
+.log-diag { background: rgba(56, 189, 248, 0.1); border: 1px dashed var(--accent); border-radius: 6px; padding: 8px 12px; margin-top: 8px; font-size: 0.8rem; color: #bae6fd; }
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg-card); border: 1px solid var(--border); padding: 12px 20px; border-radius: 8px; font-size: 0.88rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 200; display: none; animation: slideUp 0.3s ease; }
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@media (max-width: 640px) { .form-row { grid-template-columns: 1fr; } .task-card { flex-direction: column; align-items: flex-start; } .task-actions { width: 100%; justify-content: flex-end; } header { padding: 12px 16px; } main { padding: 16px; } .tabs-bar { margin: 12px 16px 0; } }
+
+.log-tab-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; padding: 4px 12px; cursor: pointer; transition: all 0.2s; }
+.log-tab-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+.log-tab-btn.active { background: rgba(56, 189, 248, 0.2); border-color: var(--accent); color: #fff; font-weight: 600; }
+</style>
+</head>
+<body>
+<!-- 全屏登录守卫门禁 (Lock Screen Gateway) -->
+<div id="loginGateway" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:99999; background:#0f172a; align-items:center; justify-content:center; padding:20px;">
+  <div style="background:#1e293b; border:1px solid #334155; border-radius:16px; padding:32px 28px; width:100%; max-width:380px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.6); text-align:center;">
+    <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:14px; background:linear-gradient(135deg, rgba(2,132,199,0.2), rgba(56,189,248,0.2)); border:1px solid rgba(56,189,248,0.4); margin-bottom:16px; font-size:1.8rem;">
+      🔐
+    </div>
+    <h2 style="font-size:1.25rem; font-weight:700; color:#fff; margin-bottom:6px;">ESP32-S3 控制台认证</h2>
+    <p style="font-size:0.82rem; color:#94a3b8; margin-bottom:24px;">请输入管理密码以解锁进入系统</p>
+    
+    <div style="margin-bottom:18px; text-align:left;">
+      <label style="display:block; font-size:0.8rem; font-weight:600; color:#94a3b8; margin-bottom:6px;">管理员密码</label>
+      <input type="password" id="gatewayPassword" class="form-control" placeholder="请输入密码 (默认: admin)" style="width:100%; font-size:0.95rem; padding:11px 14px;" onkeydown="if(event.key==='Enter') submitGatewayLogin()">
+      <div id="gatewayError" style="display:none; color:#ef4444; font-size:0.8rem; margin-top:8px; font-weight:500;">❌ 密码错误，请重新输入</div>
+    </div>
+    
+    <button class="btn btn-primary" id="gatewaySubmitBtn" onclick="submitGatewayLogin()" style="width:100%; height:42px; font-size:0.95rem; font-weight:700; border-radius:8px;">
+      🚀 验证并进入控制台
+    </button>
+  </div>
+</div>
+
+
+<header>
+  <div class="logo">
+    <div class="logo-badge">ESP32-S3</div>
+    <span>Nano-Server 控制台</span>
+  </div>
+  <div class="nav-status">
+    <span class="badge" id="wifiBadge"><span class="dot dot-green"></span> STA</span>
+    <span class="badge" id="ipBadge" style="cursor:pointer;" onclick="copyCurrentIp()" title="点击复制IP">IP: 正在连接...</span>
+    <a href="http://esp32.local" target="_blank" class="badge" style="color:var(--accent); text-decoration:none; border-color:rgba(56,189,248,0.4);" title="局域网专属域名直达 (免记IP)">🌐 esp32.local</a>
+    <button class="btn btn-secondary btn-sm" onclick="logoutSession()" title="退出当前登录会话">🔒 退出登录</button>
+  </div>
+</header>
+
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="switchTab('dashboard')">📊 仪表盘</button>
+  <button class="tab-btn" onclick="switchTab('tasks')">⏱️ 任务中心</button>
+  <button class="tab-btn" onclick="switchTab('llm')">🤖 大模型中枢</button>
+  <button class="tab-btn" onclick="switchTab('push')">🔔 消息推送</button>
+  <button class="tab-btn" onclick="switchTab('network')">📶 网络与系统</button>
+  <button class="tab-btn" onclick="switchTab('logs')">📜 运行日志</button>
+</div>
+
+<main>
+  <!-- 1. 仪表盘 -->
+  <div class="tab-pane active" id="pane-dashboard">
+    <div class="grid-cards">
+      <div class="card">
+        <div class="card-title">8MB Octal PSRAM 堆内存</div>
+        <div class="card-value" id="dashRam">-- / -- MB</div>
+        <div style="font-size:0.8rem; color:var(--text-muted);" id="dashRamPct">剩余内存: -- MB</div>
+        <div class="progress-bar"><div class="progress-fill" id="dashRamBar" style="width: 0%"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">16MB Flash 存储空间</div>
+        <div class="card-value" id="dashFlash">-- / -- MB</div>
+        <div style="font-size:0.8rem; color:var(--text-muted);" id="dashFlashPct">剩余可用: -- MB</div>
+        <div class="progress-bar"><div class="progress-fill" id="dashFlashBar" style="width: 0%"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>系统运行时长</span>
+          <span style="display:inline-flex; align-items:center; gap:4px; font-size:0.72rem; color:var(--success);"><span class="dot dot-green" style="width:6px; height:6px;"></span>实时</span>
+        </div>
+        <div class="card-value" id="dashUptime">--</div>
+        <div style="font-size:0.8rem; color:var(--text-muted);" id="dashTime">北京时间: 同步中...</div>
+      </div>
+      <div class="card">
+        <div class="card-title">芯片核心与温度</div>
+        <div class="card-value" id="dashTemp">-- °C</div>
+        <div style="font-size:0.8rem; color:var(--text-muted);" id="dashCpu">主频: 240 MHz (双核)</div>
+      </div>
+    </div>
+
+    <!-- 📈 近 60 天打卡日历热力图 (Activity Heatmap) -->
+    <div class="card" style="margin-top:16px;">
+      <div id="dashHeatmapContainer">
+        <div style="color:var(--text-muted); padding:16px; text-align:center;">⏳ 正在读取近 60 天打卡日历热力图...</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-header">
+        <div class="section-title">⚡ 快速状态一览</div>
+        <button class="btn btn-secondary btn-sm" onclick="refreshStatus()">🔄 刷新</button>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:20px; font-size:0.9rem;">
+        <div><strong>当前网络:</strong> <span id="dashNetSsid">--</span> (<span id="dashRssi">-- dBm</span>)</div>
+        <div><strong>开机原因:</strong> <span id="dashResetCause" style="color:#38bdf8;">--</span></div>
+        <div><strong>CPU能效:</strong> <span id="dashCpuMode" style="color:#10b981;">--</span></div>
+        <div><strong>内网 IP:</strong> <code id="dashNetIp" style="background:#0f172a; padding:2px 6px; border-radius:4px; color:var(--accent);">--</code></div>
+        <div><strong>局域网域名:</strong> <a href="http://esp32.local" target="_blank" style="color:var(--accent); text-decoration:none;"><code style="background:#0f172a; padding:2px 6px; border-radius:4px; color:var(--accent);">http://esp32.local</code></a></div>
+        <div><strong>授时服务:</strong> <span id="dashNtpStatus" style="color:var(--success);">NTP 已对齐</span></div>
+        <div><strong>Web 守护:</strong> <span style="color:var(--success);">Microdot Async (80端口)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 任务中心 -->
+  <div class="tab-pane" id="pane-tasks">
+    <div class="section-header">
+      <div class="section-title">⏱️ 自动化任务列表</div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-secondary" onclick="openCreateTaskModal(true)">✨ AI 帮我创建</button>
+        <button class="btn btn-primary" onclick="openCreateTaskModal(false)">➕ 添加任务</button>
+      </div>
+    </div>
+    <div class="task-list" id="tasksContainer">
+      <!-- 动态渲染任务卡片 -->
+    </div>
+  </div>
+
+  <!-- 3. 大模型中枢 -->
+  <div class="tab-pane" id="pane-llm">
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="section-header">
+        <div class="section-title">🤖 OpenAI 兼容大模型接入</div>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">历史厂商快捷切换（已保存的接口 URL 与 API Key）</label>
+        <select class="form-control" id="llmHistorySelect" onchange="applyLlmHistory(this.value)">
+          <option value="">-- 选择历史厂商快速填充 URL 与 Key --</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">API Base URL</label>
+          <input type="text" class="form-control" id="llmBaseUrl" placeholder="例如: https://api.openai.com/v1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input type="password" class="form-control" id="llmApiKey" placeholder="sk-...">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <label class="form-label" style="margin:0;">选择模型</label>
+            <button class="btn btn-secondary btn-sm" onclick="fetchRemoteModels()">🔍 自动探测可用模型</button>
+          </div>
+          <select class="form-control" id="llmModelSelect" onchange="onModelSelect(this.value)">
+            <option value="">-- 点击右上角探测模型或手动输入 --</option>
+            <option value="__custom__">-- 手动输入自定义模型 --</option>
+          </select>
+          <input type="text" class="form-control" id="llmCustomModel" placeholder="请输入模型名称 (例如: gpt-4o-mini 或 deepseek-chat)" style="display:none; margin-top:8px;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">采样温度 (Temperature): <span id="tempVal">0.7</span></label>
+          <input type="range" class="form-control" id="llmTemp" min="0" max="1" step="0.1" value="0.7" oninput="document.getElementById('tempVal').innerText=this.value">
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="saveLlmConfig()">💾 保存模型配置</button>
+    </div>
+
+    <div class="card">
+      <div class="section-title" style="margin-bottom:12px;">💬 即时大模型对话测试</div>
+      <div style="display:flex; gap:10px; margin-bottom:12px;">
+        <input type="text" class="form-control" id="llmTestInput" placeholder="输入测试问题，如：请精简总结 ESP32-S3 的三个特点" value="请用一句话介绍 ESP32-S3 N16R8 开发板的优势。">
+        <button class="btn btn-secondary" onclick="sendLlmTest()">发送测试</button>
+      </div>
+      <div style="background:#0f172a; border-radius:8px; padding:14px; min-height:60px; font-size:0.9rem; white-space:pre-wrap;" id="llmTestOutput">等待测试输入...</div>
+    </div>
+  </div>
+
+  <!-- 4. 消息推送 -->
+  <div class="tab-pane" id="pane-push">
+    <div class="grid-cards">
+      <!-- 🔕 智能推送过滤与夜间免打扰 (DND) -->
+      <div class="card" style="grid-column: 1 / -1; border-color: rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.06);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="font-weight:700; font-size:1.05rem; display:flex; align-items:center; gap:8px;">
+            <span>🔕</span> 智能推送分级与夜间免打扰 (DND)
+          </div>
+          <span class="badge" style="background:rgba(99, 102, 241, 0.2); color:#818cf8; font-size:0.75rem;">纯软件智能策略</span>
+        </div>
+        <div class="grid-cards" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">推送过滤策略</label>
+            <select class="form-control" id="pushPolicyMode">
+              <option value="all">📢 全部推送 (无论成功或失败均推送通知)</option>
+              <option value="fail_only" selected>🛡️ 仅异常告警 (仅打卡失败/熔断/凭据即将过期才推，强烈推荐)</option>
+              <option value="silent">🔕 彻底静默 (仅发送健康周报，日常打卡完全静默)</option>
+            </select>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;">
+              💡 推荐「仅异常告警」，打卡成功不打扰，有异常才发告警。
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <label class="form-label" style="margin-bottom:0;">夜间免打扰时段</label>
+              <label class="switch"><input type="checkbox" id="pushDndEnabled" checked><span class="slider"></span></label>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <select class="form-control" id="pushDndStart" style="flex:1;">
+                <option value="21">21:00</option>
+                <option value="22">22:00</option>
+                <option value="23" selected>23:00 (推荐)</option>
+                <option value="0">00:00</option>
+              </select>
+              <span style="color:var(--text-muted); font-size:0.85rem;">至次日</span>
+              <select class="form-control" id="pushDndEnd" style="flex:1;">
+                <option value="6">06:00</option>
+                <option value="7">07:00</option>
+                <option value="8" selected>08:00 (推荐)</option>
+                <option value="9">09:00</option>
+                <option value="10">10:00</option>
+              </select>
+            </div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;">
+              🌙 免打扰时段内，成功打卡通知静默；失败报警与熔断保护照常放行。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PushPlus -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="font-weight:700;">🟢 PushPlus 微信推送</div>
+          <label class="switch"><input type="checkbox" id="pushplusEnabled"><span class="slider"></span></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">PushPlus Token</label>
+          <input type="password" class="form-control" id="pushplusToken" placeholder="从 pushplus.plus 获取的 Token">
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="testPush('pushplus')">发送测试</button>
+      </div>
+
+      <!-- 飞书 -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="font-weight:700;">🟦 飞书群机器人</div>
+          <label class="switch"><input type="checkbox" id="feishuEnabled"><span class="slider"></span></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">飞书 Webhook URL</label>
+          <input type="text" class="form-control" id="feishuWebhook" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/...">
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="testPush('feishu')">发送测试</button>
+      </div>
+
+      <!-- 钉钉 -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="font-weight:700;">🟧 钉钉群机器人</div>
+          <label class="switch"><input type="checkbox" id="dingtalkEnabled"><span class="slider"></span></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">钉钉 Webhook URL</label>
+          <input type="text" class="form-control" id="dingtalkWebhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=...">
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="testPush('dingtalk')">发送测试</button>
+      </div>
+
+      <!-- 企业微信群机器人 -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="font-weight:700;">🟢 企业微信群机器人 (免实名)</div>
+          <label class="switch"><input type="checkbox" id="wechatworkEnabled"><span class="slider"></span></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">企业微信 Webhook 地址</label>
+          <input type="text" class="form-control" id="wechatworkWebhook" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...">
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="testPush('wechat_work')">发送测试</button>
+      </div>
+
+      <!-- 自定义 Webhook -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="font-weight:700;">🟪 自定义 Webhook (Bark / 私有)</div>
+          <label class="switch"><input type="checkbox" id="customEnabled"><span class="slider"></span></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Webhook URL</label>
+          <input type="text" class="form-control" id="customUrl" placeholder="https://api.day.app/your_key/{title}/{content}">
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="testPush('custom')">发送测试</button>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="savePushConfig()">💾 保存所有推送配置</button>
+  </div>
+
+  <!-- 5. 网络与系统全面控制中心 -->
+  <div class="tab-pane" id="pane-network">
+    <!-- 第一行：网络详情与硬件监控 -->
+    <div class="grid-cards" style="grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));">
+      <!-- 网络连接详情 -->
+      <div class="card">
+        <div class="section-header">
+          <div class="section-title">🌐 当前网络连接状态</div>
+          <button class="btn btn-secondary btn-sm" onclick="testNetPing()">⚡ 测试外网连通性</button>
+        </div>
+        <table class="info-table">
+          <tr><td>工作模式</td><td id="netMode">--</td></tr>
+          <tr><td>已连接 WiFi</td><td id="netSsid">--</td></tr>
+          <tr><td>信号强度 (RSSI)</td><td id="netRssi">--</td></tr>
+          <tr><td>本机 IP (IPv4)</td><td><span id="netIp">--</span> <button class="btn btn-secondary btn-sm" style="padding:2px 6px; margin-left:6px;" onclick="copyText(document.getElementById('netIp').innerText)">复制</button></td></tr>
+          <tr><td>子网掩码</td><td id="netSubnet">--</td></tr>
+          <tr><td>默认网关</td><td id="netGateway">--</td></tr>
+          <tr><td>DNS 服务器</td><td id="netDns">--</td></tr>
+          <tr><td>STA MAC 地址</td><td id="netMacSta">--</td></tr>
+          <tr><td>外网延迟测试</td><td id="netPingVal">点击上方按钮测试</td></tr>
+        </table>
+      </div>
+
+      <!-- 硬件与固件核心指标 -->
+      <div class="card">
+        <div class="section-header">
+          <div class="section-title">💻 硬件规格与运行指标</div>
+          <button class="btn btn-secondary btn-sm" onclick="refreshStatus()">🔄 刷新</button>
+        </div>
+        <table class="info-table">
+          <tr><td>芯片型号</td><td>ESP32-S3 (QFN56) v0.2</td></tr>
+          <tr><td>CPU 架构与主频</td><td>Xtensa Dual-Core 32-bit @ <span id="hwCpuFreq">240</span> MHz</td></tr>
+          <tr><td>芯片核心温度</td><td><span id="hwTemp" style="color:#38bdf8;">--</span> °C (内置传感器)</td></tr>
+          <tr><td>8MB PSRAM 规格</td><td>Octal-SPI (OPI) 高速八线内存</td></tr>
+          <tr><td>PSRAM 堆内存</td><td id="hwRamDetail">--</td></tr>
+          <tr><td>16MB SPI Flash</td><td>16MB (文件系统可用: <span id="hwFlashDetail">--</span>)</td></tr>
+          <tr><td>固件版本</td><td>MicroPython v1.29.0 (SPIRAM_OCT)</td></tr>
+          <tr><td>精确网络授时</td><td id="hwNtpStatus">已同步 (NTP 阿里授时中心)</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- 第二行：热点救援、配网与系统操作 -->
+    <div class="grid-cards" style="grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));">
+      <!-- 救援 AP 热点管理 -->
+      <div class="card">
+        <div class="section-header">
+          <div class="section-title">📡 备用 AP 救援热点设置</div>
+          <label class="switch"><input type="checkbox" id="apSwitch" checked onchange="toggleAp(this.checked)"><span class="slider"></span></label>
+        </div>
+        <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px;">
+          当路由器 WiFi 无法连接或密码错误时，可通过此热点直接进入控制台应急排查。平时可根据需要开启或关闭，并可自定义热点名称与密码。
+        </div>
+        <div class="form-group">
+          <label class="form-label">热点名称 (SSID)</label>
+          <input type="text" class="form-control" id="apSsidInput" placeholder="默认: ESP32-Server-Setup">
+        </div>
+        <div class="form-group">
+          <label class="form-label">热点密码 (留空为免密开放，输入8位以上开启保护)</label>
+          <input type="password" class="form-control" id="apPasswordInput" placeholder="留空为免密开放，或输入8位以上密码">
+        </div>
+        <button class="btn btn-primary" style="margin-bottom:16px;" onclick="saveApConfig()">保存热点设置</button>
+
+        <table class="info-table">
+          <tr><td>热点默认 IP</td><td><code>192.168.4.1</code></td></tr>
+          <tr><td>AP MAC 地址</td><td id="netMacAp">--</td></tr>
+          <tr><td>广播运行状态</td><td id="apStatusText" style="color:var(--success);">广播运行中</td></tr>
+        </table>
+      </div>
+
+      <!-- 配网扫描与更改 -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px;">📶 重新配置 WiFi 连接</div>
+        <div class="form-group">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <label class="form-label" style="margin:0;">扫描周围 2.4G WiFi</label>
+            <button class="btn btn-secondary btn-sm" onclick="scanWifi()">📡 重新扫描</button>
+          </div>
+          <select class="form-control" id="wifiSelect" onchange="document.getElementById('wifiSsid').value=this.value">
+            <option value="">-- 点击右上方按钮扫描周围 WiFi --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">WiFi 名称 (SSID)</label>
+          <input type="text" class="form-control" id="wifiSsid" placeholder="支持手动输入或从上方选择">
+        </div>
+        <div class="form-group">
+          <label class="form-label">WiFi 密码</label>
+          <input type="password" class="form-control" id="wifiPassword" placeholder="输入 WiFi 密码">
+        </div>
+
+        <!-- 静态 IP 设置折叠项 -->
+        <div style="background:#0f172a; border-radius:8px; padding:12px; margin-bottom:16px; border:1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:0.85rem; font-weight:600;">启用静态 IP 分配 (Static IP)</span>
+            <label class="switch"><input type="checkbox" id="useStaticIp" onchange="document.getElementById('staticIpSection').style.display=this.checked?'block':'none'"><span class="slider"></span></label>
+          </div>
+          <div id="staticIpSection" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">静态 IP 地址</label>
+                <input type="text" class="form-control" id="staticIp" placeholder="如: 192.168.1.200">
+              </div>
+              <div class="form-group">
+                <label class="form-label">子网掩码</label>
+                <input type="text" class="form-control" id="staticSubnet" value="255.255.255.0">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">默认网关</label>
+                <input type="text" class="form-control" id="staticGateway" placeholder="如: 192.168.1.1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">首选 DNS</label>
+                <input type="text" class="form-control" id="staticDns" placeholder="如: 223.5.5.5 或网关IP">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="connectWifi()">连接 WiFi 并保存</button>
+      </div>
+
+            <!-- 数据备份与一键恢复 -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px;">📦 数据资产备份与一键恢复</div>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px; line-height:1.5;">
+          一键导出当前系统的全部配置、大模型凭证与自动化任务（含 Cookie），可随时在新开发板或刷机后 100% 完整恢复。
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+          <button class="btn btn-primary btn-sm" onclick="exportBackup()">📥 导出配置与任务备份 (.json)</button>
+          <label class="btn btn-secondary btn-sm" style="margin:0; cursor:pointer;">
+            📤 导入恢复备份 (.json)
+            <input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="importBackup(event)">
+          </label>
+        </div>
+        <div style="margin-top:16px; border-top:1px dashed var(--border); padding-top:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <span style="font-size:0.85rem; font-weight:600; color:#fff;">📜 闪存自动轮转备份快照 (保留最新 5 份)</span>
+            <button class="btn btn-secondary btn-sm" onclick="loadBackupSnapshots()" style="padding:2px 8px; font-size:0.75rem;">🔄 刷新快照</button>
+          </div>
+          <div id="snapshotList" style="font-size:0.8rem; color:var(--text-muted);">正在加载快照列表...</div>
+        </div>
+      </div>
+
+      <!-- 📁 闪存简易文件浏览器 (Flash Explorer) -->
+      <div class="card" style="grid-column: 1 / -1;">
+        <div class="section-header">
+          <div class="section-title">📁 闪存文件资源管理器 (Flash Explorer)</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <button class="btn btn-secondary btn-sm" onclick="browseFlashPath('/')">🏠 根目录</button>
+            <button class="btn btn-secondary btn-sm" onclick="browseFlashPath('/data')">💾 /data</button>
+            <button class="btn btn-secondary btn-sm" onclick="browseFlashPath('/static')">🎨 /static</button>
+            <button class="btn btn-secondary btn-sm" onclick="browseFlashPath('/app')">⚙️ /app</button>
+            <button class="btn btn-secondary btn-sm" onclick="refreshFlashExplorer()">🔄 刷新目录</button>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.8rem; color:var(--text-muted);">
+          <div>当前路径：<code id="fsCurrentPath" style="color:#38bdf8; font-weight:600;">/data</code></div>
+          <div>💡 点击文件名或预览按钮可在线查看文本内容</div>
+        </div>
+        <div id="fsEntriesList" style="max-height: 280px; overflow-y: auto; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 8px; padding: 6px;">
+          <div style="padding:15px; color:var(--text-muted); text-align:center;">正在读取闪存目录...</div>
+        </div>
+      </div>
+
+      <!-- 自动化周报与健康体检 -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px;">📊 自动化打卡周报与健康体检</div>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px; line-height:1.5;">
+          系统每周日 20:00 自动聚合近 7 天打卡成功率、斩获收益、Cookie 寿命预警及温度/内存健康指标，并自动推送到已配置的通知渠道（企业微信/钉钉/飞书等）。同时自动执行一次闪存备份轮转。
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" id="btnTriggerReport" onclick="triggerWeeklyReportTest()">📊 立即生成并发送体检周报测试</button>
+          <span id="reportTriggerStatus" style="font-size:0.8rem; color:var(--text-muted);"></span>
+        </div>
+      </div>
+
+      <!-- 板载 WS2812 状态指示灯 -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px;">💡 板载 WS2812 状态指示灯</div>
+        <div class="form-group">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="form-label">启用状态指示灯</label>
+            <label class="switch"><input type="checkbox" id="ledEnabled" checked onchange="saveLedConfig()"><span class="slider"></span></label>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">RGB 信号引脚 (GPIO)</label>
+            <input type="number" class="form-control" id="ledPin" value="48" min="0" max="48">
+          </div>
+          <div class="form-group">
+            <label class="form-label">发光亮度 (<span id="ledBrightnessVal">20</span>%)</label>
+            <input type="range" class="form-control" id="ledBrightness" min="5" max="100" value="20" oninput="document.getElementById('ledBrightnessVal').innerText=this.value" onchange="saveLedConfig()">
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="saveLedConfig()">💾 保存灯光设置</button>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-secondary btn-sm" style="color:#10b981;" onclick="testLedColor('green')">🟢 测试绿灯</button>
+            <button class="btn btn-secondary btn-sm" style="color:#38bdf8;" onclick="testLedColor('blue')">🔵 测试蓝灯</button>
+            <button class="btn btn-secondary btn-sm" style="color:#ef4444;" onclick="testLedColor('red')">🔴 测试红灯</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 🔋 能效与 CPU 智能动态变频 (DFS) -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px;">🔋 能效与 CPU 智能动态变频 (DFS)</div>
+        <div style="font-size:0.83rem; color:var(--text-muted); margin-bottom:14px; line-height:1.5;">
+          空闲时自动降频以减少功耗并降低核心温度（实测降温 8~12°C），打卡或处理复杂网络请求时瞬间升频至 240MHz 满血状态。
+        </div>
+        <div class="form-group">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="form-label">启用 CPU 动态变频</label>
+            <label class="switch"><input type="checkbox" id="powerDfsEnabled" checked onchange="savePowerConfig()"><span class="slider"></span></label>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">待机空闲主频</label>
+            <select class="form-control" id="powerIdleFreq" onchange="savePowerConfig()">
+              <option value="160" selected>160 MHz (推荐，低发热高稳定)</option>
+              <option value="80">80 MHz (极致省电低温，约38°C)</option>
+              <option value="240">240 MHz (常驻全速)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">任务繁忙主频</label>
+            <select class="form-control" id="powerBusyFreq" disabled>
+              <option value="240" selected>240 MHz (全速狂暴模式)</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:0.82rem; color:var(--text-muted);">
+          <span>当前芯片时钟: <strong id="powerCurClock" style="color:#10b981;">-- MHz</strong></span>
+          <button class="btn btn-secondary btn-sm" onclick="savePowerConfig()">💾 保存变频策略</button>
+        </div>
+      </div>
+
+      <!-- 安全与系统运维 -->
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px;">🔐 安全与系统运维</div>
+        <div class="form-group">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="form-label">启用管理密码保护</label>
+            <label class="switch"><input type="checkbox" id="authEnabled" checked><span class="slider"></span></label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">修改管理密码</label>
+          <input type="password" class="form-control" id="authPassword" placeholder="设置新密码">
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="savePassword()">保存密码修改</button>
+
+        <div style="margin-top:20px; padding-top:14px; border-top:1px solid var(--border);">
+          <div class="section-title" style="margin-bottom:8px; font-size:0.95rem; color:var(--danger);">⚠️ 开发板控制</div>
+          <button class="btn btn-danger btn-sm" onclick="rebootEsp()">🔄 重启 ESP32 开发板</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. 运行日志 -->
+  <div class="tab-pane" id="pane-logs">
+    <div class="section-header">
+      <div class="section-title">📜 统一运行与系统运维日志</div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="downloadAllLogs()">📥 导出完整日志 (.txt)</button>
+        <button class="btn btn-secondary btn-sm" onclick="loadLogs()">🔄 刷新</button>
+        <button class="btn btn-danger btn-sm" onclick="clearLogs()">🗑️ 清空日志</button>
+      </div>
+    </div>
+    <!-- 日志分类筛选 Tab 与 64KB 限额说明 -->
+    <div style="display:flex; gap:8px; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px; flex-wrap:wrap; align-items:center;">
+      <button class="btn btn-sm log-tab-btn active" id="logTabAll" onclick="filterLogs('all')">📋 全部日志 (<span id="countLogAll">0</span>)</button>
+      <button class="btn btn-sm log-tab-btn" id="logTabTask" onclick="filterLogs('task')">⏱️ 任务打卡 (<span id="countLogTask">0</span>)</button>
+      <button class="btn btn-sm log-tab-btn" id="logTabSystem" onclick="filterLogs('system')">💻 系统内核 (<span id="countLogSystem">0</span>)</button>
+      <div style="margin-left:auto; font-size:0.78rem; color:var(--text-muted);">
+        <span>💾 Flash存储限额: 64KB (达到限额 FIFO 自动覆盖淘汰)</span>
+      </div>
+    </div>
+    <div id="logsContainer">
+      <!-- 动态渲染日志 -->
+    </div>
+  </div>
+</main>
+
+<!-- 任务创建 / 编辑弹窗 -->
+<div class="modal-overlay" id="taskModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title" id="taskModalTitle">添加自动化任务</div>
+      <button class="modal-close" onclick="closeTaskModal()">&times;</button>
+    </div>
+    <input type="hidden" id="editTaskId">
+    
+    <!-- ✨ AI 智能自动解析与填单卡片 -->
+    <div id="aiGenCard" style="background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(139, 92, 246, 0.08)); border: 1px solid rgba(56, 189, 248, 0.28); border-radius: 10px; padding: 14px; margin-bottom: 18px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-weight:700; color:var(--accent); font-size:0.92rem; display:flex; align-items:center; gap:6px;">
+          <span>🤖</span> AI 智能解析 & 一键填单
+        </span>
+        <span class="badge" style="background:rgba(56, 189, 248, 0.2); color:#38bdf8; font-size:0.72rem;">免抓包神器</span>
+      </div>
+
+      <!-- 热门签到模板预设市场 (10+ 平台) -->
+      <div style="background:rgba(15,23,42,0.4); border:1px solid rgba(56,189,248,0.2); border-radius:8px; padding:10px; margin-bottom:12px;">
+        <div style="font-size:0.8rem; color:#38bdf8; font-weight:700; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+          <span>🌟 热门签到规则市场 (一键装填协议参数)：</span>
+          <span style="font-size:0.72rem; color:var(--text-muted);">自动配置拟人化时间窗口</span>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+          <button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:0.75rem;" onclick="applyTaskPreset('nodeseek')">🍗 NodeSeek</button>
+          <button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:0.75rem;" onclick="applyTaskPreset('v2ex')">☕ V2EX</button>
+          <button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:0.75rem;" onclick="applyTaskPreset('52pojie')">🛡️ 吾爱破解</button>
+          <button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:0.75rem;" onclick="applyTaskPreset('right')">📶 恩山无线</button>
+          <button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:0.75rem;" onclick="applyTaskPreset('linuxdo')">🐧 Linux.do</button>
+          <button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:0.75rem;" onclick="applyTaskPreset('bilibili')">📺 哔哩哔哩</button>
+          <button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:0.75rem;" onclick="applyTaskPreset('smzdm')">🏷️ 什么值得买</button>
+          <button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:0.75rem;" onclick="applyTaskPreset('juejin')">💎 稀土掘金</button>
+          <button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:0.75rem;" onclick="applyTaskPreset('aliyun')">☁️ 阿里云盘</button>
+          <button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:0.75rem;" onclick="applyTaskPreset('uptime')">🌐 网站哨兵</button>
+        </div>
+      </div>
+
+      <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:10px; line-height:1.4;">
+        输入目标网址 + 需求描述，或粘贴浏览器 cURL，大模型即可自动逆向请求协议并智能生成防拦截参数：
+      </div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <input type="text" class="form-control" id="aiGenUrl" placeholder="目标网址或 API（例如：https://www.nodeseek.com/ 或其他网站）">
+      </div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <textarea class="form-control" id="aiGenPrompt" style="min-height:50px;" placeholder="用自然语言描述您的需求，例如：&#10;• 每天早晨 8点到9点之间随机自动签到 NodeSeek 领鸡腿，推送到企业微信&#10;• 每天早晨 08:30 抓取早报新闻，总结 3 条要点推送到微信&#10;• 每 10 分钟检测博客是否存活，打不开就微信告警"></textarea>
+      </div>
+      
+      <div id="aiGenCurlSection" style="display:none; margin-bottom:8px;">
+        <textarea class="form-control" id="aiGenCurl" style="min-height:60px;" placeholder="【可选】直接粘贴浏览器的 cURL 命令（Chrome/Edge F12 -> Network -> 对应请求右键 -> Copy as cURL），系统将自动提取 URL、Cookie、Headers 和 POST Body！"></textarea>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="toggleAiCurlInput()">📋 展开/粘贴 cURL</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="parseCurlLocally()" title="直接从粘贴的cURL中秒级提取URL、Header、Cookie与Body">⚡ 本地瞬时提取</button>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" id="btnAiAnalyze" onclick="runAiTaskGenerate()">✨ AI 一键智能装填</button>
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">任务名称</label>
+      <input type="text" class="form-control" id="taskName" placeholder="例如：NodeSeek 每日自动签到领鸡腿">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">任务类型</label>
+        <select class="form-control" id="taskType" onchange="onTaskTypeChange(this.value)">
+          <option value="checkin">网站自动签到 (HTTP Check-in)</option>
+          <option value="ai_digest">AI 智能情报订阅 (AI Digest)</option>
+          <option value="uptime">服务与网站哨兵 (Uptime Monitor)</option>
+          <option value="custom_http">通用 HTTP 请求 (Custom HTTP)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">定时规则类型</label>
+        <select class="form-control" id="taskSchedType" onchange="onSchedTypeChange(this.value)">
+          <option value="window">🎲 拟人化时间窗口 (每日随机时刻，防封推荐)</option>
+          <option value="daily">每日固定时间点 (HH:MM)</option>
+          <option value="interval">间隔循环 (每 X 分钟)</option>
+          <option value="cron">Linux Crontab 表达式 (5段)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" id="taskSchedValLabel">间隔时间 (分钟)</label>
+        <input type="text" class="form-control" id="taskSchedVal" placeholder="例如：10 (每10分钟)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">🎲 防封随机延迟 (分钟)</label>
+        <input type="number" class="form-control" id="taskJitter" placeholder="0 (无延迟) 或如 15 (0~15分随机)" min="0" max="60" value="0" title="在定时到达后随机推迟 0~N 分钟内某一秒执行，防风控监测">
+      </div>
+    </div>
+
+    <!-- 动态表单项：HTTP 签到 / 通用请求 -->
+    <div id="formSectionHttp">
+      <div class="form-row">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">请求方法</label>
+          <select class="form-control" id="taskMethod">
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:3;">
+          <label class="form-label">目标 URL</label>
+          <input type="text" class="form-control" id="taskUrl" placeholder="https://api.example.com/checkin">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">请求头 Headers (JSON 格式，填入 Cookie 等)</label>
+        <textarea class="form-control" id="taskHeaders" placeholder='{"Cookie": "session=xxxx", "User-Agent": "Mozilla/5.0"}' oninput="checkCookieWarning()"></textarea>
+        <div id="cookieExpBadge" style="display:none; font-size:0.8rem; margin-top:6px; font-weight:600;"></div>
+        <div id="cookieWarningBox" style="display:none; background:rgba(234, 179, 8, 0.12); border:1px solid rgba(234, 179, 8, 0.35); border-radius:6px; padding:8px 12px; margin-top:6px; font-size:0.78rem; color:#facc15;">
+          ⚠️ <b>未检测到 Cookie 登录凭据</b>：当前任务为网站签到，大部分网站必须附带登录 Cookie 才能成功打卡！请按 F12 从浏览器 Network 复制 Cookie 填入上方 Headers 的 <code>"Cookie": "..."</code> 中。
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">请求体 Body (仅 POST)</label>
+        <textarea class="form-control" id="taskBody" placeholder='{"point": 1}'></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">成功判断关键词 (多词可用 | 分隔，签到任务已自动支持“已签到”成功识别)</label>
+        <input type="text" class="form-control" id="taskKeyword" placeholder='例如："success":true|签到成功|今天已完成签到'>
+      </div>
+    </div>
+
+    <!-- 动态表单项：AI 订阅 -->
+    <div id="formSectionAi" style="display:none;">
+      <div class="form-group">
+        <label class="form-label">内容抓取源 URL (RSS / API / 网页文本)</label>
+        <input type="text" class="form-control" id="taskAiSource" placeholder="https://example.com/rss.xml 或某个热搜 API">
+      </div>
+      <div class="form-group">
+        <label class="form-label">提炼 Prompt 提示词</label>
+        <textarea class="form-control" id="taskAiPrompt">请将抓取到的内容筛选出最重要的 3 条要点，用简洁清晰的语言生成一份 150 字以内的工作速报：</textarea>
+      </div>
+    </div>
+
+    <!-- 动态表单项：服务哨兵 -->
+    <div id="formSectionUptime" style="display:none;">
+      <div class="form-group">
+        <label class="form-label">监控目标 URL (HTTP 探测)</label>
+        <input type="text" class="form-control" id="taskUptimeUrl" placeholder="https://myblog.com 或内网 http://192.168.1.5">
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--border); padding-top:14px; margin-top:14px;">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">失败自动重试次数</label>
+          <input type="number" class="form-control" id="taskRetry" value="1" min="0" max="3">
+        </div>
+        <div class="form-group">
+          <label class="form-label">大模型智能诊断失败</label>
+          <label class="switch" style="margin-top:6px;"><input type="checkbox" id="taskAiDiag" checked><span class="slider"></span></label>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">失败发送告警推送</label>
+          <label class="switch" style="margin-top:6px;"><input type="checkbox" id="taskNotifyFail" checked><span class="slider"></span></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">成功发送通知推送</label>
+          <label class="switch" style="margin-top:6px;"><input type="checkbox" id="taskNotifySuccess"><span class="slider"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeTaskModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveTask()">保存任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- 配网成功全屏弹窗 -->
+<div class="modal-overlay" id="wifiSuccessModal">
+  <div class="modal-content" style="max-width:460px; text-align:center;">
+    <div style="font-size:3rem; margin-bottom:8px;">🎉</div>
+    <div class="modal-title" style="font-size:1.35rem; margin-bottom:12px;">WiFi 配网成功！</div>
+    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:20px;">
+      ESP32 已成功接入局域网并获取到独立 IP 地址：
+    </p>
+    <div style="background:#0f172a; border:2px dashed var(--accent); border-radius:8px; padding:14px; margin-bottom:20px;">
+      <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:4px;">局域网访问地址</div>
+      <div id="newIpDisplay" style="font-size:1.5rem; font-weight:700; color:var(--accent); font-family:monospace;">--</div>
+    </div>
+    <div style="display:flex; gap:10px; justify-content:center; margin-bottom:16px;">
+      <button class="btn btn-secondary" onclick="copyNewIp()">📋 复制 IP 地址</button>
+      <button class="btn btn-primary" onclick="openNewIp()">🔗 直接打开新地址</button>
+    </div>
+    <div style="font-size:0.8rem; color:var(--text-muted); line-height:1.5; text-align:left; background:#1e293b; padding:12px; border-radius:8px; border:1px solid var(--border);">
+      💡 <strong>温馨提示</strong>：<br>
+      1. 此时请将您的电脑或手机从当前热点切回您刚刚连接的 WiFi。<br>
+      2. 切换完成后，直接在浏览器中打开上方地址即可继续管理！<br>
+      3. 板载救援热点已保持开启，若有需要仍可随时连接 <code>192.168.4.1</code>。
+    </div>
+    <div style="margin-top:16px;">
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('wifiSuccessModal').classList.remove('active')">关闭提示</button>
+    </div>
+  </div>
+</div>
+
+<!-- 认证登录弹窗 -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal-content" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title">🔐 输入管理员密码</div>
+    </div>
+    <div class="form-group">
+      <input type="password" class="form-control" id="loginPassword" placeholder="默认密码: admin">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" style="width:100%;" onclick="doLogin()">登录</button>
+    </div>
+  </div>
+</div>
+
+<!-- 浏览器一键同步 Cookie 书签弹窗 -->
+<div class="modal-overlay" id="bookmarkletModal" style="display:none;">
+  <div class="modal-content" style="max-width:540px;">
+    <div class="modal-header">
+      <div class="modal-title">⚡ 浏览器一键更新 Cookie 书签</div>
+      <button class="modal-close" onclick="closeBookmarkletModal()">&times;</button>
+    </div>
+    <div style="font-size:0.85rem; color:var(--text-muted); line-height:1.6; margin-bottom:14px;">
+      无需每次进入控制台抓包并手动复制粘贴！<br>
+      将下方书签按钮<b>拖动到你的浏览器书签栏</b>，或者点击复制 JavaScript 代码。<br>
+      以后在任何目标网站（如论坛、签到站）登录后，<b>只需点击一下书签</b>，即可一键静默同步最新 Cookie 到 ESP32！
+    </div>
+
+    <div style="background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:16px; text-align:center; margin-bottom:16px;">
+      <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">👇 拖拽此按钮到浏览器书签栏收藏夹：</div>
+      <a id="bookmarkletLink" href="#" class="btn btn-primary" style="text-decoration:none; display:inline-flex; font-weight:700; cursor:grab; box-shadow:0 0 16px rgba(56,189,248,0.3);" onclick="event.preventDefault(); alert('请将此按钮直接拖拽到浏览器的书签栏收藏夹中！\n或者点击下方「复制书签代码」在浏览器按F12控制台粘贴执行。');">
+        ⚡ 同步Cookie到ESP32 (<span id="bookmarkletTaskName">--</span>)
+      </a>
+    </div>
+
+    <div class="form-group" style="margin-bottom:12px;">
+      <label class="form-label" style="display:flex; justify-content:space-between;">
+        <span>或者复制书签代码 (支持浏览器F12控制台粘贴运行)：</span>
+        <a href="javascript:void(0)" onclick="copyBookmarkletCode()" style="color:var(--accent); text-decoration:none;">📋 复制完整代码</a>
+      </label>
+      <textarea id="bookmarkletCodeText" class="form-control" rows="4" readonly style="font-family:monospace; font-size:0.75rem; background:#0b1120; color:#94a3b8; word-break:break-all;"></textarea>
+    </div>
+
+    <div style="font-size:0.78rem; color:var(--text-muted); background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25); border-radius:8px; padding:10px;">
+      💡 <b>温馨提示</b>：若在某些 HTTPS 网站点击书签被浏览器拦截跨域请求（Mixed Content），脚本会自动弹窗提取并展示该网页的 Cookie，点击即可一键复制，极为省心！
+    </div>
+
+    <div class="modal-footer" style="margin-top:16px;">
+      <button class="btn btn-secondary" onclick="closeBookmarkletModal()">关闭</button>
+      <button class="btn btn-primary" onclick="copyBookmarkletCode()">📋 复制书签代码</button>
+    </div>
+  </div>
+</div>
+
+<!-- HTTP 在线实时调试控制台 (Mini Postman) 弹窗 -->
+<div class="modal-overlay" id="httpDebugModal" style="display:none;">
+  <div class="modal-content" style="max-width:680px; width:95%;">
+    <div class="modal-header">
+      <div class="modal-title">🔬 在线实时 HTTP 调试控制台 (Mini Postman)</div>
+      <button class="modal-close" onclick="closeHttpDebugger()">&times;</button>
+    </div>
+
+    <!-- 请求行 -->
+    <div style="display:flex; gap:8px; margin-bottom:12px;">
+      <select id="debugMethod" class="form-control" style="width:110px; font-weight:700; color:var(--accent);">
+        <option value="GET">GET</option>
+        <option value="POST">POST</option>
+        <option value="PUT">PUT</option>
+        <option value="DELETE">DELETE</option>
+        <option value="PATCH">PATCH</option>
+      </select>
+      <input type="text" id="debugUrl" class="form-control" placeholder="https://example.com/api/..." style="flex:1;">
+      <button class="btn btn-primary" id="btnSendDebug" onclick="sendHttpDebug()" style="white-space:nowrap; padding:0 16px;">
+        🚀 发送请求
+      </button>
+    </div>
+
+    <!-- 请求参数标签页切换 -->
+    <div style="display:flex; gap:8px; border-bottom:1px solid var(--border); margin-bottom:12px; padding-bottom:6px;">
+      <button class="tab-btn active" id="debugTabReqHeaders" onclick="switchDebugReqTab('headers')" style="padding:4px 12px; font-size:0.8rem;">请求头 (Headers)</button>
+      <button class="tab-btn" id="debugTabReqBody" onclick="switchDebugReqTab('body')" style="padding:4px 12px; font-size:0.8rem;">请求体 (Body)</button>
+    </div>
+
+    <div id="debugReqHeadersPane">
+      <textarea id="debugHeaders" class="form-control" rows="4" placeholder="key: value 或 JSON 格式，例如：&#10;User-Agent: Mozilla/5.0&#10;Cookie: session=123" style="font-family:monospace; font-size:0.8rem;"></textarea>
+    </div>
+
+    <div id="debugReqBodyPane" style="display:none;">
+      <textarea id="debugBody" class="form-control" rows="4" placeholder="请求 Body 内容 (JSON 或 文本)" style="font-family:monospace; font-size:0.8rem;"></textarea>
+    </div>
+
+    <!-- 响应区域 -->
+    <div style="margin-top:16px; border-top:1px dashed var(--border); padding-top:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-weight:700; font-size:0.9rem; color:#fff;">📡 响应结果</span>
+          <span id="debugStatusCode" class="badge" style="display:none; font-weight:700;">--</span>
+          <span id="debugLatency" style="font-size:0.75rem; color:var(--text-muted);"></span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-secondary btn-sm" onclick="copyDebugResponseBody()" style="padding:3px 8px; font-size:0.75rem;">📋 复制正文</button>
+        </div>
+      </div>
+
+      <!-- 响应标签页 -->
+      <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <button class="tab-btn active" id="debugTabRespBody" onclick="switchDebugRespTab('body')" style="padding:3px 10px; font-size:0.75rem;">📄 响应正文</button>
+        <button class="tab-btn" id="debugTabRespHeaders" onclick="switchDebugRespTab('headers')" style="padding:3px 10px; font-size:0.75rem;">📋 响应头</button>
+        <button class="tab-btn" id="debugTabRespCookies" onclick="switchDebugRespTab('cookies')" style="padding:3px 10px; font-size:0.75rem;">🍪 Set-Cookie</button>
+      </div>
+
+      <div id="debugRespBodyPane">
+        <textarea id="debugResponseBody" class="form-control" rows="7" readonly placeholder="等待发送请求..." style="font-family:monospace; font-size:0.78rem; background:#0b1120; color:#cbd5e1;"></textarea>
+      </div>
+
+      <div id="debugRespHeadersPane" style="display:none;">
+        <div id="debugResponseHeadersTable" style="background:#0b1120; border:1px solid var(--border); border-radius:8px; padding:10px; max-height:160px; overflow-y:auto; font-family:monospace; font-size:0.78rem; color:#94a3b8;">暂无响应头</div>
+      </div>
+
+      <div id="debugRespCookiesPane" style="display:none;">
+        <div id="debugResponseCookiesList" style="background:#0b1120; border:1px solid var(--border); border-radius:8px; padding:10px; max-height:160px; overflow-y:auto; font-family:monospace; font-size:0.78rem; color:#10b981;">未返回 Set-Cookie</div>
+      </div>
+    </div>
+
+    <div class="modal-footer" style="margin-top:16px;">
+      <button class="btn btn-secondary" onclick="closeHttpDebugger()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let authToken = localStorage.getItem('esp_token') || '';
+let systemConfig = {};
+let tasksList = [];
+let assignedNewIp = '';
+let currentUptime = null;
+let currentBeijingTime = null;
+
+function pad2(n) {
+  return n < 10 ? '0' + n : '' + n;
+}
+
+function renderClock() {
+  if (currentUptime !== null) {
+    const elUptime = document.getElementById('dashUptime');
+    if (elUptime) elUptime.innerText = formatUptime(currentUptime);
+  }
+  if (currentBeijingTime) {
+    const y = currentBeijingTime.getFullYear();
+    const mo = pad2(currentBeijingTime.getMonth() + 1);
+    const day = pad2(currentBeijingTime.getDate());
+    const h = pad2(currentBeijingTime.getHours());
+    const min = pad2(currentBeijingTime.getMinutes());
+    const s = pad2(currentBeijingTime.getSeconds());
+    const elTime = document.getElementById('dashTime');
+    if (elTime) elTime.innerText = '北京时间: ' + y + '-' + mo + '-' + day + ' ' + h + ':' + min + ':' + s;
+  }
+}
+
+// 独立的 1 秒绝对均匀时钟脉冲：每一秒均匀变化，杜绝任何网络抖动导致的顿挫或连跳
+function tickUptimeClock() {
+  if (currentUptime === null) return;
+  currentUptime++;
+  if (currentBeijingTime) {
+    currentBeijingTime.setTime(currentBeijingTime.getTime() + 1000);
+  }
+  renderClock();
+}
+
+function syncServerClock(serverUptime, serverTimeStr) {
+  if (serverUptime === undefined || serverUptime === null) return;
+  
+  let parsedDate = null;
+  if (serverTimeStr && serverTimeStr.includes(' ')) {
+    const parts = serverTimeStr.split(' ');
+    const dParts = parts[0].split('-').map(Number);
+    const tParts = parts[1].split(':').map(Number);
+    if (dParts.length === 3 && tParts.length === 3) {
+      parsedDate = new Date(dParts[0], dParts[1] - 1, dParts[2], tParts[0], tParts[1], tParts[2]);
+    }
+  }
+
+  // 首次接收到服务器状态进行基准初始化
+  if (currentUptime === null) {
+    currentUptime = serverUptime;
+    currentBeijingTime = parsedDate;
+    renderClock();
+    return;
+  }
+
+  // 软同步防抖逻辑：
+  // 正常情况下，由于网络往返几十至几百毫秒延迟，服务端返回的秒数与本地秒数可能会有 ±1 秒的随机相位差。
+  // 此时绝不可强行重置时间，必须保持前端每 1 秒均匀跳动的天然节奏！
+  // 只有当误差 >= 2 秒（如休眠唤醒、长卡顿或初次同步）时，才平滑校正到服务端基准。
+  const diff = serverUptime - currentUptime;
+  if (Math.abs(diff) >= 2) {
+    currentUptime = serverUptime;
+    if (parsedDate) currentBeijingTime = parsedDate;
+    renderClock();
+  }
+}
+
+function showToast(msg, duration = 3000) {
+  const t = document.getElementById('toast');
+  t.innerText = msg;
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, duration);
+}
+
+function copyText(text) {
+  if (!text || text === '--') return;
+  navigator.clipboard.writeText(text).then(() => showToast('已复制: ' + text)).catch(() => {
+    const i = document.createElement('input');
+    i.value = text;
+    document.body.appendChild(i);
+    i.select();
+    document.execCommand('copy');
+    document.body.removeChild(i);
+    showToast('已复制: ' + text);
+  });
+}
+
+function copyCurrentIp() {
+  const ip = document.getElementById('netIp').innerText;
+  copyText(ip);
+}
+
+function copyNewIp() {
+  copyText(assignedNewIp);
+}
+
+function openNewIp() {
+  if (assignedNewIp) {
+    window.location.href = 'http://' + assignedNewIp;
+  }
+}
+
+function formatUptime(seconds) {
+  if (seconds < 60) return seconds + ' 秒';
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  let str = '';
+  if (d > 0) str += d + '天 ';
+  if (h > 0 || d > 0) str += h + '小时 ';
+  str += m + '分钟 ' + s + '秒';
+  return str;
+}
+
+function req(url, options = {}) {
+  options.headers = options.headers || {};
+  if (authToken) {
+    options.headers['Authorization'] = 'Bearer ' + authToken;
+  }
+  return fetch(url, options).then(res => {
+    if (res.status === 401) {
+      localStorage.removeItem('esp_token');
+      authToken = '';
+      showLoginGateway();
+      throw new Error('Unauthorized');
+    }
+    return res.json();
+  });
+}
+
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('pane-' + tabId).classList.add('active');
+  if (tabId === 'tasks') loadTasks();
+  if (tabId === 'llm') loadLlmConfig();
+  if (tabId === 'push') loadPushConfig();
+  if (tabId === 'logs') loadLogs();
+  if (tabId === 'dashboard') loadDashboardHeatmap();
+  if (tabId === 'network') browseFlashPath(currentFsPath);
+  if (tabId === 'network') {
+    refreshStatus();
+    loadLedConfig();
+    loadBackupSnapshots();
+  }
+}
+
+function refreshStatus() {
+  req('/api/status').then(res => {
+    if (!res.ok) return;
+    const s = res.status;
+    
+    // 仪表盘
+    document.getElementById('dashRam').innerText = s.free_ram_mb + ' / ' + s.total_ram_mb + ' MB';
+    const ramPct = Math.round(((s.total_ram_mb - s.free_ram_mb) / s.total_ram_mb) * 100);
+    document.getElementById('dashRamPct').innerText = '剩余内存: ' + s.free_ram_mb + ' MB (利用率 ' + ramPct + '%)';
+    document.getElementById('dashRamBar').style.width = ramPct + '%';
+
+    document.getElementById('dashFlash').innerText = s.flash_free_mb + ' / ' + s.flash_total_mb + ' MB';
+    document.getElementById('dashFlashPct').innerText = '剩余可用: ' + s.flash_free_mb + ' MB';
+    const flashPct = Math.round(((s.flash_total_mb - s.flash_free_mb) / s.flash_total_mb) * 100);
+    document.getElementById('dashFlashBar').style.width = (flashPct || 10) + '%';
+
+    syncServerClock(s.uptime_seconds, s.time);
+    document.getElementById('dashTemp').innerText = (s.temperature || '--') + ' °C';
+    const isDfs = s.power && s.power.dfs_enabled;
+    document.getElementById('dashCpu').innerText = '主频: ' + (s.cpu_freq_mhz || 240) + ' MHz (' + (isDfs ? '动态变频' : '固定全速') + ')';
+    if (document.getElementById('dashResetCause')) {
+      document.getElementById('dashResetCause').innerText = s.reset_cause || '正常冷启动';
+    }
+    if (document.getElementById('dashCpuMode')) {
+      document.getElementById('dashCpuMode').innerText = isDfs ? '动态降温 (待机 ' + (s.power.idle_freq || 160) + 'MHz)' : '固定全速 (240MHz)';
+    }
+    if (document.getElementById('powerCurClock')) {
+      document.getElementById('powerCurClock').innerText = (s.cpu_freq_mhz || 240) + ' MHz';
+    }
+    if (s.power) {
+      if (document.getElementById('powerDfsEnabled')) {
+        document.getElementById('powerDfsEnabled').checked = !!s.power.dfs_enabled;
+      }
+      if (document.getElementById('powerIdleFreq')) {
+        document.getElementById('powerIdleFreq').value = s.power.idle_freq || 160;
+      }
+    }
+
+    const w = s.wifi || {};
+    const sta = w.sta || {};
+    const ap = w.ap || {};
+
+    document.getElementById('dashNetSsid').innerText = sta.ssid || '未连接 STA';
+    document.getElementById('dashNetIp').innerText = sta.ip || ap.ip || '--';
+    document.getElementById('dashRssi').innerText = (sta.rssi ? (sta.rssi + ' dBm') : '--');
+
+    // 导航栏
+    const isStaConnected = sta.active && sta.ip && sta.ip !== '0.0.0.0';
+    document.getElementById('wifiBadge').innerHTML = '<span class="dot ' + (isStaConnected ? 'dot-green' : (ap.active ? 'dot-yellow' : 'dot-red')) + '"></span> ' + w.mode;
+    document.getElementById('ipBadge').innerText = 'IP: ' + (isStaConnected ? sta.ip : ap.ip);
+
+    // 详细网络选项卡
+    document.getElementById('netMode').innerHTML = '<span class="badge">' + w.mode + '</span>';
+    document.getElementById('netSsid').innerText = sta.ssid ? (sta.ssid + ' (已连通)') : '未接入任何 WiFi';
+    document.getElementById('netRssi').innerText = sta.rssi ? (sta.rssi + ' dBm') : '无信号';
+    document.getElementById('netIp').innerText = sta.ip || '--';
+    document.getElementById('netSubnet').innerText = sta.subnet || '--';
+    document.getElementById('netGateway').innerText = sta.gateway || '--';
+    document.getElementById('netDns').innerText = sta.dns || '--';
+    document.getElementById('netMacSta').innerText = sta.mac || '--';
+
+    // 硬件卡片
+    document.getElementById('hwCpuFreq').innerText = s.cpu_freq_mhz || 240;
+    document.getElementById('hwTemp').innerText = s.temperature || '--';
+    document.getElementById('hwRamDetail').innerText = '总计 ' + s.total_ram_mb + ' MB (剩余 ' + s.free_ram_mb + ' MB)';
+    document.getElementById('hwFlashDetail').innerText = s.flash_free_mb + ' MB / 共 ' + s.flash_total_mb + ' MB';
+
+    // AP 热点
+    document.getElementById('netMacAp').innerText = ap.mac || '--';
+    document.getElementById('apSwitch').checked = !!ap.active;
+    document.getElementById('apStatusText').innerText = ap.active ? '广播运行中 (可救援连接)' : '已关闭';
+    document.getElementById('apStatusText').style.color = ap.active ? 'var(--success)' : 'var(--text-muted)';
+    if (ap.ssid && !document.getElementById('apSsidInput').value) {
+      document.getElementById('apSsidInput').value = ap.ssid;
+    }
+    if (ap.password && !document.getElementById('apPasswordInput').value) {
+      document.getElementById('apPasswordInput').value = ap.password;
+    }
+
+    // 静态 IP 回显
+    if (sta.use_static_ip) {
+      document.getElementById('useStaticIp').checked = true;
+      document.getElementById('staticIpSection').style.display = 'block';
+      if (!document.getElementById('staticIp').value) document.getElementById('staticIp').value = sta.static_ip || sta.ip;
+      if (!document.getElementById('staticGateway').value) document.getElementById('staticGateway').value = sta.saved_gateway || sta.gateway;
+      if (!document.getElementById('staticDns').value) document.getElementById('staticDns').value = sta.saved_dns || sta.dns;
+    }
+  }).catch(e => console.error(e));
+}
+
+function testNetPing() {
+  const el = document.getElementById('netPingVal');
+  el.innerText = '正在测试外网连通性与延迟...';
+  req('/api/system/net_ping').then(res => {
+    if (res.online) {
+      el.innerHTML = '<span style="color:var(--success);">✅ 互联网正常连通，延迟 ' + res.latency_ms + ' ms</span>';
+    } else {
+      el.innerHTML = '<span style="color:var(--danger);">❌ 无法访问外网 (' + (res.error || '超时') + ')</span>';
+    }
+  }).catch(() => {
+    el.innerText = '测试失败';
+  });
+}
+
+function toggleAp(active) {
+  req('/api/wifi/ap_toggle', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ active: active })
+  }).then(res => {
+    showToast(res.ap_active ? '备用 AP 热点已开启' : '备用 AP 热点已关闭');
+    refreshStatus();
+  });
+}
+
+// 任务管理
+function loadTasks() {
+  req('/api/tasks').then(res => {
+    if (!res.ok) return;
+    tasksList = res.tasks;
+    renderTasks();
+  });
+}
+
+window._openCalendars = window._openCalendars || new Set();
+
+function getPastNDays(n) {
+  const days = [];
+  const now = new Date();
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 86400000);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    days.push(yyyy + '-' + mm + '-' + dd);
+  }
+  return days;
+}
+
+function renderTaskCalendar(task) {
+  const calDiv = document.getElementById('task-cal-' + task.id);
+  if (!calDiv) return;
+  const stats = task.stats || {};
+  const history = stats.history || {};
+  const past30 = getPastNDays(30);
+  const todayStr = past30[past30.length - 1];
+
+  let succCount = 0;
+  let failCount = 0;
+  let totalRewardIn30 = 0;
+
+  let cellsHtml = '';
+  past30.forEach(dayStr => {
+    const entry = history[dayStr];
+    const isToday = (dayStr === todayStr);
+    const dayNumber = dayStr.substring(8);
+
+    let bg = 'rgba(30, 41, 59, 0.6)';
+    let border = isToday ? '2px solid var(--accent)' : '1px solid rgba(51, 65, 85, 0.6)';
+    let statusText = '未记录';
+    let icon = '<span style="color:#475569; font-size:0.6rem;">-</span>';
+
+    if (entry) {
+      if (entry.status === 'success') {
+        succCount++;
+        bg = 'rgba(16, 185, 129, 0.2)';
+        border = isToday ? '2px solid var(--accent)' : '1px solid rgba(16, 185, 129, 0.4)';
+        if (entry.reward) {
+          totalRewardIn30 += entry.reward;
+          icon = '<span style="color:#fbbf24; font-weight:700; font-size:0.62rem;">+' + entry.reward + '</span>';
+          statusText = '打卡成功 (斩获 +' + entry.reward + ' ' + (entry.unit || '') + ')';
+        } else {
+          icon = '<span style="color:var(--success); font-size:0.7rem;">✔</span>';
+          statusText = '打卡成功';
+        }
+      } else if (entry.status === 'fail') {
+        failCount++;
+        bg = 'rgba(239, 68, 68, 0.2)';
+        border = isToday ? '2px solid var(--accent)' : '1px solid rgba(239, 68, 68, 0.4)';
+        icon = '<span style="color:var(--danger); font-size:0.7rem;">✖</span>';
+        statusText = '打卡失败';
+      }
+    }
+
+    const tip = dayStr + (isToday ? ' (今天)' : '') + ': ' + statusText;
+    cellsHtml += '<div style="flex:1 1 calc(10% - 6px); min-width:26px; max-width:36px; height:36px; background:' + bg + '; border:' + border + '; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:all 0.15s;" title="' + tip + '" onmouseover="this.style.transform=\'scale(1.1)\'" onmouseout="this.style.transform=\'scale(1)\'">' +
+      '<span style="font-size:0.62rem; color:#94a3b8; line-height:1;">' + dayNumber + '</span>' +
+      '<div style="line-height:1; margin-top:2px;">' + icon + '</div>' +
+    '</div>';
+  });
+
+  const totalRuns = succCount + failCount;
+  const rate = totalRuns > 0 ? Math.round((succCount / totalRuns) * 100) : 100;
+  const unit = stats.reward_unit || '';
+
+  calDiv.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:0.8rem;">' +
+    '<span style="color:var(--text-muted); font-weight:600;">📊 近 30 天打卡战绩日历 (' + past30[0].substring(5) + ' ~ ' + todayStr.substring(5) + ')</span>' +
+    '<div style="display:flex; gap:12px; font-size:0.78rem;">' +
+      '<span>成功率: <b style="color:var(--success);">' + rate + '%</b> (' + succCount + '/' + totalRuns + ')</span>' +
+      (totalRewardIn30 > 0 ? ('<span>30天斩获: <b style="color:#fbbf24;">+' + totalRewardIn30 + ' ' + unit + '</b></span>') : '') +
+    '</div>' +
+  '</div>' +
+  '<div style="display:flex; flex-wrap:wrap; gap:5px; justify-content:flex-start; margin-bottom:8px;">' +
+    cellsHtml +
+  '</div>' +
+  '<div style="display:flex; justify-content:space-between; align-items:center; font-size:0.72rem; color:var(--text-muted); border-top:1px solid #1e293b; padding-top:6px;">' +
+    '<div style="display:flex; gap:12px; align-items:center;">' +
+      '<span><span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:rgba(16, 185, 129, 0.6); margin-right:4px;"></span>成功</span>' +
+      '<span><span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:rgba(239, 68, 68, 0.6); margin-right:4px;"></span>失败</span>' +
+      '<span><span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:rgba(51, 65, 85, 0.6); margin-right:4px;"></span>未打卡</span>' +
+    '</div>' +
+    '<span><span style="display:inline-block; width:8px; height:8px; border:2px solid var(--accent); border-radius:2px; margin-right:4px;"></span>蓝框为今日</span>' +
+  '</div>';
+}
+
+function toggleTaskCalendar(taskId) {
+  window._openCalendars = window._openCalendars || new Set();
+  const calDiv = document.getElementById('task-cal-' + taskId);
+  if (!calDiv) return;
+  if (window._openCalendars.has(taskId)) {
+    window._openCalendars.delete(taskId);
+    calDiv.style.display = 'none';
+  } else {
+    window._openCalendars.add(taskId);
+    calDiv.style.display = 'block';
+    const task = tasksList.find(t => t.id === taskId);
+    if (task) renderTaskCalendar(task);
+  }
+  const btn = document.getElementById('cal-btn-' + taskId);
+  if (btn) {
+    btn.innerHTML = '📅 30天战绩日历 ' + (window._openCalendars.has(taskId) ? '▲' : '▼');
+  }
+}
+
+function renderTasks() {
+  const c = document.getElementById('tasksContainer');
+  if (tasksList.length === 0) {
+    c.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted); background:var(--bg-card); border-radius:var(--radius); border:1px dashed var(--border);">📋 当前没有任何自动化任务，点击上方「添加任务」开始创建！</div>';
+    return;
+  }
+  let html = '';
+  tasksList.forEach(t => {
+    const typeMap = { 'checkin': '网站签到', 'ai_digest': 'AI 订阅', 'uptime': '服务哨兵', 'custom_http': 'HTTP 请求' };
+    const schedDesc = t.schedule_type === 'interval' ? ('每 ' + t.schedule_val + ' 分钟') : (t.schedule_type === 'daily' ? ('每天 ' + t.schedule_val) : ('Cron: ' + t.schedule_val));
+    const statusBadge = t.last_status === 'success' ? '<span style="color:var(--success);">✅ 成功</span>' : (t.last_status === 'fail' ? '<span style="color:var(--danger);">❌ 失败</span>' : '⚪ 未运行');
+    
+    html += '<div class="task-card">';
+    html += '  <div class="task-main-row">';
+    html += '    <div class="task-info">';
+    let cookieBadge = '';
+    if (t.cookie_status === 'valid') {
+      const expTxt = t.cookie_exp_date ? ('有效至 ' + t.cookie_exp_date + ' · 剩' + t.cookie_days + '天') : ('凭据有效(' + t.cookie_days + '天)');
+      cookieBadge = ' <span class="badge" style="background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3); font-size:0.75rem;" title="凭据到期时间: ' + (t.cookie_exp_date || '') + '">🟢 ' + expTxt + '</span>';
+    } else if (t.cookie_status === 'expiring_soon') {
+      const expTxt = t.cookie_exp_date ? ('到期日 ' + t.cookie_exp_date + ' · 仅剩' + t.cookie_days + '天') : ('即将到期(' + t.cookie_days + '天)');
+      cookieBadge = ' <span class="badge" style="background:rgba(245,158,11,0.15); color:var(--warning); border-color:rgba(245,158,11,0.3); font-size:0.75rem;" title="凭据到期时间: ' + (t.cookie_exp_date || '') + '">🟡 ' + expTxt + '</span>';
+    } else if (t.cookie_status === 'expired') {
+      const expTxt = t.cookie_exp_date ? ('已于 ' + t.cookie_exp_date + ' 过期') : '凭据已过期';
+      cookieBadge = ' <span class="badge" style="background:rgba(239,68,68,0.15); color:var(--danger); border-color:rgba(239,68,68,0.3); font-size:0.75rem;">🔴 ' + expTxt + '</span>';
+    }
+    let circuitBadge = '';
+    const isTripped = t.stats && t.stats.circuit_tripped;
+    if (isTripped) {
+      circuitBadge = ' <span class="badge" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid #ef4444; font-size:0.75rem;" title="连续失败达到3次，智能熔断已启动，已暂停自动调度以防封号">🛡️ 熔断保护中</span>';
+    }
+    html += '      <div class="task-name">' + t.name + ' <span class="badge">' + (typeMap[t.type] || t.type) + '</span>' + cookieBadge + circuitBadge + '</div>';
+    html += '      <div class="task-meta">';
+    html += '        <span>⏱️ ' + schedDesc + (t.jitter_minutes ? (' <span style="color:var(--accent); font-weight:600;" title="防封随机延迟0~' + t.jitter_minutes + '分钟">+🎲' + t.jitter_minutes + 'm</span>') : '') + '</span>';
+    if (t.cookie_exp_date) {
+      const color = t.cookie_status === 'valid' ? 'var(--success)' : (t.cookie_status === 'expiring_soon' ? 'var(--warning)' : 'var(--danger)');
+      html += '        <span>🔑 凭据有效至: <b style="color:' + color + ';">' + t.cookie_exp_date + '</b></span>';
+    }
+    html += '        <span>状态: ' + statusBadge + '</span>';
+    html += '        <span>上次运行: ' + (t.last_run || '从未') + '</span>';
+    html += '      </div>';
+    if (t.last_result) {
+      html += '      <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">结果: ' + t.last_result + '</div>';
+    }
+    html += '    </div>';
+    html += '    <div class="task-actions">';
+    html += '      <label class="switch"><input type="checkbox" ' + (t.enabled ? 'checked' : '') + ' onchange="toggleTaskEnable(\'' + t.id + '\', this.checked)"><span class="slider"></span></label>';
+    if (isTripped) {
+      html += '      <button class="btn btn-sm" onclick="resetTaskCircuit(\'' + t.id + '\')" title="手动重置熔断并立即恢复调度" style="background:rgba(245,158,11,0.2); color:#f59e0b; border:1px solid rgba(245,158,11,0.5);">🔄 恢复调度</button>';
+    }
+    html += '      <button class="btn btn-secondary btn-sm" onclick="openBookmarkletModal(\'' + t.id + '\', \'' + (t.name || '').replace(/'/g, "\\'") + '\')" title="生成一键同步Cookie的书签工具">⚡ 书签同步</button>';
+    html += '      <button class="btn btn-secondary btn-sm" onclick="runTaskNow(\'' + t.id + '\')">⚡ 运行</button>';
+    html += '      <button class="btn btn-secondary btn-sm" onclick="openHttpDebugger(\'' + t.id + '\')" title="打开在线实时网络调试控制台 (Mini Postman)">🔬 调试</button>';
+    html += '      <button class="btn btn-secondary btn-sm" onclick="editTask(\'' + t.id + '\')">✏️ 编辑</button>';
+    html += '      <button class="btn btn-danger btn-sm" onclick="deleteTask(\'' + t.id + '\')">🗑️</button>';
+    html += '    </div>';
+    html += '  </div>';
+
+    // Per-Task Independent Stats Strip & Calendar
+    const hasStats = (t.type === 'checkin' || !!t.stats);
+    if (hasStats) {
+      const stats = t.stats || {};
+      const streak = stats.streak || 0;
+      const totalSucc = stats.total_success || 0;
+      const totalRew = stats.total_reward || 0;
+      const rewUnit = stats.reward_unit || '';
+      const isCalOpen = window._openCalendars && window._openCalendars.has(t.id);
+
+      html += '  <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding-top:10px; border-top:1px dashed var(--border);">';
+      html += '    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">';
+      html += '      <span class="badge" style="background:rgba(249,115,22,0.12); color:#f97316; border-color:rgba(249,115,22,0.3); font-size:0.75rem;">🔥 连续 <b>' + streak + '</b> 天</span>';
+      html += '      <span class="badge" style="background:rgba(16,185,129,0.12); color:var(--success); border-color:rgba(16,185,129,0.3); font-size:0.75rem;">🎯 累计 <b>' + totalSucc + '</b> 次</span>';
+      if (totalRew > 0) {
+        html += '      <span class="badge" style="background:rgba(234,179,8,0.12); color:#eab308; border-color:rgba(234,179,8,0.3); font-size:0.75rem;">🍗 斩获 <b>' + totalRew + '</b> ' + rewUnit + '</span>';
+      }
+      html += '    </div>';
+      html += '    <button id="cal-btn-' + t.id + '" class="btn btn-secondary btn-sm" onclick="toggleTaskCalendar(\'' + t.id + '\')" style="padding:3px 10px; font-size:0.75rem; border-radius:6px;">📅 30天战绩日历 ' + (isCalOpen ? '▲' : '▼') + '</button>';
+      html += '  </div>';
+      html += '  <div id="task-cal-' + t.id + '" style="display:' + (isCalOpen ? 'block' : 'none') + '; margin-top:4px; padding:12px 14px; background:#0f172a; border-radius:8px; border:1px solid var(--border);"></div>';
+    }
+
+    html += '</div>';
+  });
+  c.innerHTML = html;
+
+  tasksList.forEach(t => {
+    if (window._openCalendars && window._openCalendars.has(t.id)) {
+      renderTaskCalendar(t);
+    }
+  });
+}
+
+function toggleTaskEnable(id, enabled) {
+  const task = tasksList.find(t => t.id === id);
+  if (task) {
+    task.enabled = enabled;
+    req('/api/tasks', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(task) })
+      .then(() => showToast(enabled ? '已启用任务' : '已暂停任务'));
+  }
+}
+
+function runTaskNow(id) {
+  showToast('正在执行任务...');
+  req('/api/tasks/' + id + '/run', { method: 'POST' }).then(res => {
+    if (res.ok) {
+      showToast((res.success ? '✅ 执行成功: ' : '❌ 执行失败: ') + res.result, 4000);
+      loadTasks();
+    }
+  });
+}
+
+function deleteTask(id) {
+  if (confirm('确定要删除此任务吗？')) {
+    req('/api/tasks/' + id, { method: 'DELETE' }).then(() => {
+      showToast('任务已删除');
+      loadTasks();
+    });
+  }
+}
+
+function parseJwtExpLocally(str) {
+  try {
+    const start = str.indexOf('eyJ');
+    if (start === -1) return null;
+    const sub = str.substring(start).split(';')[0].split('&')[0].split(' ')[0].replace(/['"]/g, '');
+    const parts = sub.split('.');
+    if (parts.length < 2) return null;
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const jsonStr = decodeURIComponent(atob(b64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+    const payload = JSON.parse(jsonStr);
+    return payload.exp || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function checkCookieWarning() {
+  const type = document.getElementById('taskType').value;
+  const box = document.getElementById('cookieWarningBox');
+  if (!box) return;
+  if (type !== 'checkin') {
+    box.style.display = 'none';
+    return;
+  }
+  const headersVal = document.getElementById('taskHeaders').value;
+  let hasCookie = false;
+  try {
+    const parsed = JSON.parse(headersVal);
+    if (parsed && typeof parsed === 'object') {
+      const keys = Object.keys(parsed);
+      for (let k of keys) {
+        if (k.toLowerCase() === 'cookie' && parsed[k] && parsed[k].trim().length > 5) {
+          hasCookie = true;
+          break;
+        }
+      }
+    }
+  } catch (e) {
+    hasCookie = /["']?cookie["']?\s*:\s*["'][^"']{5,}["']/i.test(headersVal);
+  }
+  box.style.display = hasCookie ? 'none' : 'block';
+  
+  const exp = parseJwtExpLocally(headersVal);
+  const expBox = document.getElementById('cookieExpBadge');
+  if (expBox) {
+    if (exp) {
+      const diffDays = ((exp - (Date.now() / 1000)) / 86400).toFixed(1);
+      if (diffDays <= 0) {
+        expBox.innerHTML = '<span style="color:var(--danger);">🔴 JWT 凭据已过期（请重新抓取）</span>';
+      } else if (diffDays <= 3) {
+        expBox.innerHTML = '<span style="color:var(--warning);">🟡 JWT 凭据即将到期（仅剩 ' + diffDays + ' 天，建议近期更新）</span>';
+      } else {
+        expBox.innerHTML = '<span style="color:var(--success);">🟢 JWT 凭据状态良好（预计剩余 ' + diffDays + ' 天）</span>';
+      }
+      expBox.style.display = 'block';
+    } else {
+      expBox.style.display = 'none';
+    }
+  }
+}
+
+function onTaskTypeChange(val) {
+  document.getElementById('formSectionHttp').style.display = (val === 'checkin' || val === 'custom_http') ? 'block' : 'none';
+  document.getElementById('formSectionAi').style.display = (val === 'ai_digest') ? 'block' : 'none';
+  document.getElementById('formSectionUptime').style.display = (val === 'uptime') ? 'block' : 'none';
+  checkCookieWarning();
+}
+
+function applyTaskPreset(key) {
+  const presets = {
+    nodeseek: {
+      name: 'NodeSeek 每日自动签到领鸡腿',
+      type: 'checkin',
+      schedule_type: 'window',
+      schedule_val: '08:30-09:15',
+      method: 'POST',
+      url: 'https://www.nodeseek.com/api/attendance?random=true',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Origin': 'https://www.nodeseek.com',
+        'Referer': 'https://www.nodeseek.com/board',
+        'Cookie': '请在此替换为您的实际 NodeSeek Cookie'
+      },
+      body: '{}',
+      match_keyword: '"success":true|今天已完成签到|已经签到',
+      notify_on_success: true,
+      notify_on_failure: true
+    },
+    v2ex: {
+      name: 'V2EX 每日领取签到奖励',
+      type: 'checkin',
+      schedule_type: 'window',
+      schedule_val: '08:45-09:30',
+      method: 'GET',
+      url: 'https://www.v2ex.com/mission/daily',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Referer': 'https://www.v2ex.com/',
+        'Cookie': '请在此替换为您的实际 V2EX Cookie'
+      },
+      body: '',
+      match_keyword: '已成功领取|连续登录|每日登录奖励',
+      notify_on_success: true,
+      notify_on_failure: true
+    },
+    '52pojie': {
+      name: '吾爱破解 每日自动打卡',
+      type: 'checkin',
+      schedule_type: 'window',
+      schedule_val: '09:00-09:45',
+      method: 'GET',
+      url: 'https://www.52pojie.cn/home.php?mod=task&do=apply&id=2',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Referer': 'https://www.52pojie.cn/',
+        'Cookie': '请在此替换为您的实际 吾爱破解 Cookie'
+      },
+      body: '',
+      match_keyword: '恭喜|已经完成|您已经完成该任务|已成功',
+      notify_on_success: true,
+      notify_on_failure: true
+    },
+    right: {
+      name: '恩山无线论坛 每日签到领币',
+      type: 'checkin',
+      schedule_type: 'window',
+      schedule_val: '09:15-10:00',
+      method: 'GET',
+      url: 'https://www.right.com.cn/forum/plugin.php?id=dsu_paulsign:sign&operation=qiandao&infloat=1&inajax=1',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Referer': 'https://www.right.com.cn/forum/',
+        'Cookie': '请在此替换为您的实际 恩山论坛 Cookie'
+      },
+      body: '',
+      match_keyword: '恭喜|已签到|成功',
+      notify_on_success: true,
+      notify_on_failure: true
+    },
+    linuxdo: {
+      name: 'Linux.do 社区活跃签到',
+      type: 'checkin',
+      schedule_type: 'window',
+      schedule_val: '09:30-10:30',
+      method: 'GET',
+      url: 'https://linux.do/',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Cookie': '请在此替换为您的实际 Linux.do Cookie'
+      },
+      body: '',
+      match_keyword: '200',
+      notify_on_success: true,
+      notify_on_failure: true
+    },
+    bilibili: {
+      name: 'Bilibili 每日双端打卡与经验',
+      type: 'checkin',
+      schedule_type: 'window',
+      schedule_val: '08:30-09:30',
+      method: 'GET',
+      url: 'https://api.bilibili.com/x/web-interface/nav',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Cookie': '请在此替换为您的实际 B站 SESSDATA/Cookie'
+      },
+      body: '',
+      match_keyword: '"isLogin":true',
+      notify_on_success: true,
+      notify_on_failure: true
+    },
+    smzdm: {
+      name: '什么值得买 每日签到领碎银',
+      type: 'checkin',
+      schedule_type: 'window',
+      schedule_val: '08:45-09:45',
+      method: 'GET',
+      url: 'https://zhiyou.smzdm.com/user/checkin/jsonp_checkin',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Referer': 'https://www.smzdm.com/',
+        'Cookie': '请在此替换为您的实际 SMZDM Cookie'
+      },
+      body: '',
+      match_keyword: '"error_code":0|"success"',
+      notify_on_success: true,
+      notify_on_failure: true
+    },
+    juejin: {
+      name: '稀土掘金 每日矿石签到',
+      type: 'checkin',
+      schedule_type: 'window',
+      schedule_val: '09:00-10:00',
+      method: 'POST',
+      url: 'https://api.juejin.cn/growth_api/v1/check_in',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Cookie': '请在此替换为您的实际 掘金 Cookie'
+      },
+      body: '{}',
+      match_keyword: '"err_no":0|已经签到',
+      notify_on_success: true,
+      notify_on_failure: true
+    },
+    aliyun: {
+      name: '阿里云盘 每日签到领容量',
+      type: 'checkin',
+      schedule_type: 'window',
+      schedule_val: '09:30-10:30',
+      method: 'POST',
+      url: 'https://member.aliyundrive.com/v1/activity/sign_in_list',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer 您的refresh_token换取的token'
+      },
+      body: '{"isReward":true}',
+      match_keyword: '"success":true',
+      notify_on_success: true,
+      notify_on_failure: true
+    },
+    uptime: {
+      name: '关键服务存活监控',
+      type: 'uptime',
+      schedule_type: 'interval',
+      schedule_val: '15',
+      target_url: 'https://',
+      notify_on_success: false,
+      notify_on_failure: true
+    }
+  };
+
+  const p = presets[key];
+  if (!p) return;
+
+  document.getElementById('taskName').value = p.name;
+  document.getElementById('taskType').value = p.type;
+  onTaskTypeChange(p.type);
+  document.getElementById('taskSchedType').value = p.schedule_type;
+  onSchedTypeChange(p.schedule_type);
+  document.getElementById('taskSchedVal').value = p.schedule_val;
+
+  if (p.type === 'checkin' || p.type === 'custom_http') {
+    document.getElementById('taskMethod').value = p.method || 'GET';
+    document.getElementById('taskUrl').value = p.url || '';
+    document.getElementById('taskHeaders').value = p.headers ? JSON.stringify(p.headers, null, 2) : '';
+    document.getElementById('taskBody').value = p.body || '';
+    document.getElementById('taskKeyword').value = p.match_keyword || '';
+  } else if (p.type === 'uptime') {
+    document.getElementById('taskUptimeUrl').value = p.target_url || '';
+  }
+
+  if (p.notify_on_success !== undefined) document.getElementById('taskNotifySuccess').checked = p.notify_on_success;
+  if (p.notify_on_failure !== undefined) document.getElementById('taskNotifyFail').checked = p.notify_on_failure;
+
+  checkCookieWarning();
+  showToast('已载入「' + p.name + '」模版预设！请按需补充/修改 Cookie。');
+}
+
+function parseCurlLocally() {
+  const curl = document.getElementById('aiGenCurl').value.trim();
+  if (!curl) {
+    const sec = document.getElementById('aiGenCurlSection');
+    sec.style.display = 'block';
+    alert('请先在展开的文本框中粘贴浏览器复制的 cURL 命令！\n(Chrome/Edge F12 -> Network -> 对应请求右键 -> Copy as cURL)');
+    return;
+  }
+
+  const clean = curl.replace(/\^"/g, '"').replace(/\^\^/g, '^').replace(/\\\r?\n/g, ' ');
+
+  // 1. Extract URL
+  let url = '';
+  const urlMatch = clean.match(/curl\s+(?:--location\s+)?(?:--request\s+\w+\s+)?['"](https?:\/\/[^'"]+)['"]/i) ||
+                   clean.match(/(?:'|")(https?:\/\/[^'"]+)(?:'|")/i) ||
+                   clean.match(/https?:\/\/[^\s'"]+/i);
+  if (urlMatch) {
+    url = urlMatch[1] || urlMatch[0];
+  }
+
+  // 2. Extract Method
+  let method = 'GET';
+  const methodMatch = clean.match(/(?:-X|--request)\s+([A-Za-z]+)/i);
+  if (methodMatch) {
+    method = methodMatch[1].toUpperCase();
+  }
+
+  // 3. Extract Headers
+  const headers = {};
+  const headerRegex = /(?:-H|--header)\s+['"]([^'"]+)['"]/gi;
+  let hm;
+  while ((hm = headerRegex.exec(clean)) !== null) {
+    const line = hm[1];
+    const colonIdx = line.indexOf(':');
+    if (colonIdx > 0) {
+      const hKey = line.substring(0, colonIdx).trim();
+      const hVal = line.substring(colonIdx + 1).trim();
+      const lower = hKey.toLowerCase();
+      if (['sec-ch-ua', 'sec-ch-ua-mobile', 'sec-ch-ua-platform', 'sec-fetch-dest', 'sec-fetch-mode', 'sec-fetch-site', 'sec-fetch-user', 'priority', 'accept-encoding'].indexOf(lower) === -1) {
+        headers[hKey] = hVal;
+      }
+    }
+  }
+
+  // Check -b or --cookie
+  const cookieMatch = clean.match(/(?:-b|--cookie)\s+['"]([^'"]+)['"]/i);
+  if (cookieMatch && !headers['Cookie'] && !headers['cookie']) {
+    headers['Cookie'] = cookieMatch[1].trim();
+  }
+
+  // 4. Extract Body
+  let body = '';
+  const bodyMatch = clean.match(/(?:--data-raw|--data|-d)\s+['"]([\s\S]*?)['"](?:\s+|$)/i);
+  if (bodyMatch) {
+    body = bodyMatch[1];
+    if (method === 'GET') method = 'POST';
+  }
+
+  if (!url) {
+    alert('未能从 cURL 中解析出目标 URL，请检查格式！');
+    return;
+  }
+
+  document.getElementById('taskUrl').value = url;
+  document.getElementById('taskMethod').value = method;
+  document.getElementById('taskHeaders').value = Object.keys(headers).length > 0 ? JSON.stringify(headers, null, 2) : '';
+  document.getElementById('taskBody').value = body;
+
+  let inferredType = 'checkin';
+  let inferredName = '自动化任务';
+  try {
+    const uObj = new URL(url);
+    const host = uObj.hostname.replace('www.', '');
+    inferredName = host + ' 自动任务';
+    if (url.indexOf('attendance') !== -1 || url.indexOf('sign') !== -1 || url.indexOf('checkin') !== -1) {
+      inferredName = host + ' 自动签到';
+      inferredType = 'checkin';
+    }
+  } catch (e) {}
+
+  if (!document.getElementById('taskName').value.trim()) {
+    document.getElementById('taskName').value = inferredName;
+  }
+  document.getElementById('taskType').value = inferredType;
+  onTaskTypeChange(inferredType);
+
+  if (inferredType === 'checkin') {
+    if (!document.getElementById('taskKeyword').value) {
+      document.getElementById('taskKeyword').value = '"success":true|签到成功|今天已完成签到|已经签到';
+    }
+  }
+
+  checkCookieWarning();
+  showToast('⚡ 本地已秒级提取 URL、Headers、Cookie 与 Body！请核对后保存。', 4000);
+}
+
+function onSchedTypeChange(val) {
+  const lbl = document.getElementById('taskSchedValLabel');
+  const inp = document.getElementById('taskSchedVal');
+  if (val === 'window') {
+    lbl.innerText = '🎲 拟人化时间窗口 (起止时间)';
+    inp.placeholder = '例如：08:30-09:15 (每天在该区间内随机抽取1分钟执行)';
+  } else if (val === 'interval') {
+    lbl.innerText = '间隔时间 (分钟)';
+    inp.placeholder = '例如：10 (每10分钟)';
+  } else if (val === 'daily') {
+    lbl.innerText = '每日运行时间点 (HH:MM)';
+    inp.placeholder = '例如：08:30';
+  } else {
+    lbl.innerText = 'Linux Crontab 表达式 (5段)';
+    inp.placeholder = '例如：*/15 * * * * 或 0 8 * * *';
+  }
+}
+
+function toggleAiCurlInput() {
+  const el = document.getElementById('aiGenCurlSection');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function runAiTaskGenerate() {
+  const url = document.getElementById('aiGenUrl').value.trim();
+  const prompt = document.getElementById('aiGenPrompt').value.trim();
+  const curl = document.getElementById('aiGenCurl').value.trim();
+
+  if (!url && !prompt && !curl) {
+    alert('请至少输入目标网址、需求描述或粘贴一段 cURL 命令！');
+    return;
+  }
+
+  const btn = document.getElementById('btnAiAnalyze');
+  const originalText = btn.innerText;
+  btn.innerText = '⏳ AI 正在深度分析意图...';
+  btn.disabled = true;
+  showToast('AI 正在分析请求协议并逆向参数，请稍候...');
+
+  // Extract Cookie locally in case LLM masks or strips it
+  let localCookie = '';
+  if (curl) {
+    const cMatch = curl.match(/(?:-H|--header)\s+['"](?:cookie|Cookie):\s*([^'"]+)['"]/i);
+    if (cMatch) {
+      localCookie = cMatch[1].trim().replace(/^['"]|['"]$/g, '');
+    }
+  }
+
+  req('/api/tasks/ai_generate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ url: url, prompt: prompt, curl: curl })
+  }).then(res => {
+    btn.innerText = originalText;
+    btn.disabled = false;
+
+    if (res.ok && res.task) {
+      const t = res.task;
+      if (t.name) document.getElementById('taskName').value = t.name;
+      if (t.type) {
+        document.getElementById('taskType').value = t.type;
+        onTaskTypeChange(t.type);
+      }
+      if (t.schedule_type) {
+        document.getElementById('taskSchedType').value = t.schedule_type;
+        onSchedTypeChange(t.schedule_type);
+      }
+      if (t.schedule_val) document.getElementById('taskSchedVal').value = t.schedule_val;
+  document.getElementById('taskJitter').value = t.jitter_minutes || 0;
+
+      const p = t.params || {};
+      if (p.url) document.getElementById('taskUrl').value = p.url;
+      if (p.method) document.getElementById('taskMethod').value = p.method;
+
+      // Ensure real cookie is filled
+      if (localCookie) {
+        if (!p.headers || typeof p.headers !== 'object') p.headers = {};
+        if (!p.headers.Cookie || p.headers.Cookie.indexOf('MASKED') !== -1) {
+          p.headers.Cookie = localCookie;
+        }
+      }
+
+      if (p.headers) document.getElementById('taskHeaders').value = typeof p.headers === 'string' ? p.headers : JSON.stringify(p.headers, null, 2);
+      if (p.body) document.getElementById('taskBody').value = typeof p.body === 'string' ? p.body : JSON.stringify(p.body);
+      if (p.match_keyword) document.getElementById('taskKeyword').value = p.match_keyword;
+      if (p.source_url) document.getElementById('taskAiSource').value = p.source_url;
+      if (p.prompt) document.getElementById('taskAiPrompt').value = p.prompt;
+      if (p.target_url) document.getElementById('taskUptimeUrl').value = p.target_url;
+
+      if (t.retry_count !== undefined) document.getElementById('taskRetry').value = t.retry_count;
+      if (t.ai_diagnose !== undefined) document.getElementById('taskAiDiag').checked = !!t.ai_diagnose;
+      if (t.notify_on_failure !== undefined) document.getElementById('taskNotifyFail').checked = !!t.notify_on_failure;
+      if (t.notify_on_success !== undefined) document.getElementById('taskNotifySuccess').checked = !!t.notify_on_success;
+
+      showToast('🎉 AI 分析完成！已为您自动填写全部表单，请核对后保存。', 5000);
+    } else {
+      alert('AI 生成失败：' + (res.message || '大模型未能返回有效格式，请先在「大模型中枢」配置有效的 API Key！'));
+    }
+  }).catch(err => {
+    btn.innerText = originalText;
+    btn.disabled = false;
+    alert('请求异常：' + err);
+  });
+}
+
+function openCreateTaskModal(focusAi = false) {
+  document.getElementById('editTaskId').value = '';
+  document.getElementById('taskModalTitle').innerText = '添加自动化任务';
+  document.getElementById('aiGenCard').style.display = 'block';
+  document.getElementById('aiGenUrl').value = '';
+  document.getElementById('aiGenPrompt').value = '';
+  document.getElementById('aiGenCurl').value = '';
+  document.getElementById('aiGenCurlSection').style.display = 'none';
+
+  document.getElementById('taskName').value = '';
+  document.getElementById('taskType').value = 'checkin';
+  onTaskTypeChange('checkin');
+  document.getElementById('taskSchedType').value = 'interval';
+  onSchedTypeChange('interval');
+  document.getElementById('taskSchedVal').value = '30';
+  document.getElementById('taskJitter').value = '0';
+  document.getElementById('taskUrl').value = '';
+  document.getElementById('taskHeaders').value = '';
+  document.getElementById('taskBody').value = '';
+  document.getElementById('taskKeyword').value = '';
+  document.getElementById('taskAiSource').value = '';
+  document.getElementById('taskUptimeUrl').value = '';
+  document.getElementById('taskModal').classList.add('active');
+  checkCookieWarning();
+
+  if (focusAi) {
+    setTimeout(() => {
+      const el = document.getElementById('aiGenPrompt');
+      if (el) el.focus();
+    }, 150);
+  }
+}
+
+function editTask(id) {
+  const t = tasksList.find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('editTaskId').value = t.id;
+  document.getElementById('taskModalTitle').innerText = '编辑自动化任务';
+  document.getElementById('aiGenCard').style.display = 'none'; // 编辑已有任务时隐藏 AI 生成卡片
+  document.getElementById('taskName').value = t.name;
+  document.getElementById('taskType').value = t.type;
+  onTaskTypeChange(t.type);
+  document.getElementById('taskSchedType').value = t.schedule_type;
+  onSchedTypeChange(t.schedule_type);
+  document.getElementById('taskSchedVal').value = t.schedule_val;
+
+  const p = t.params || {};
+  document.getElementById('taskMethod').value = p.method || 'GET';
+  document.getElementById('taskUrl').value = p.url || '';
+  document.getElementById('taskHeaders').value = p.headers ? JSON.stringify(p.headers, null, 2) : '';
+  document.getElementById('taskBody').value = p.body || '';
+  document.getElementById('taskKeyword').value = p.match_keyword || '';
+  document.getElementById('taskAiSource').value = p.source_url || '';
+  document.getElementById('taskAiPrompt').value = p.prompt || '';
+  document.getElementById('taskUptimeUrl').value = p.target_url || '';
+
+  document.getElementById('taskRetry').value = t.retry_count || 1;
+  document.getElementById('taskAiDiag').checked = t.ai_diagnose !== false;
+  document.getElementById('taskNotifyFail').checked = t.notify_on_failure !== false;
+  document.getElementById('taskNotifySuccess').checked = !!t.notify_on_success;
+
+  document.getElementById('taskModal').classList.add('active');
+  checkCookieWarning();
+}
+
+function closeTaskModal() {
+  document.getElementById('taskModal').classList.remove('active');
+}
+
+function saveTask() {
+  const name = document.getElementById('taskName').value.trim();
+  if (!name) { alert('请输入任务名称'); return; }
+  const type = document.getElementById('taskType').value;
+  const schedType = document.getElementById('taskSchedType').value;
+  const schedVal = document.getElementById('taskSchedVal').value.trim();
+
+  let headers = {};
+  try {
+    const rawH = document.getElementById('taskHeaders').value.trim();
+    if (rawH) headers = JSON.parse(rawH);
+  } catch (e) {
+    alert('Headers JSON 格式不合法，请检查！');
+    return;
+  }
+
+  // Cookie safeguard for checkin tasks
+  if (type === 'checkin') {
+    let hasCookie = false;
+    for (let k of Object.keys(headers)) {
+      if (k.toLowerCase() === 'cookie' && headers[k] && headers[k].trim().length > 5) {
+        hasCookie = true;
+        break;
+      }
+    }
+    if (!hasCookie) {
+      if (!confirm('⚠️ 当前为网站签到任务，但未在 Headers 中检测到登录 Cookie，可能导致打卡失败（未登录）。\n\n是否仍要继续保存？')) {
+        return;
+      }
+    }
+  }
+
+  const taskData = {
+    id: document.getElementById('editTaskId').value,
+    name: name,
+    type: type,
+    schedule_type: schedType,
+    schedule_val: schedVal,
+    jitter_minutes: parseInt(document.getElementById('taskJitter').value) || 0,
+    enabled: true,
+    retry_count: parseInt(document.getElementById('taskRetry').value) || 1,
+    ai_diagnose: document.getElementById('taskAiDiag').checked,
+    notify_on_failure: document.getElementById('taskNotifyFail').checked,
+    notify_on_success: document.getElementById('taskNotifySuccess').checked,
+    params: {
+      url: document.getElementById('taskUrl').value.trim(),
+      method: document.getElementById('taskMethod').value,
+      headers: headers,
+      body: document.getElementById('taskBody').value,
+      match_keyword: document.getElementById('taskKeyword').value.trim(),
+      source_url: document.getElementById('taskAiSource').value.trim(),
+      prompt: document.getElementById('taskAiPrompt').value.trim(),
+      target_url: document.getElementById('taskUptimeUrl').value.trim()
+    }
+  };
+
+  req('/api/tasks', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(taskData) })
+    .then(res => {
+      if (res.ok) {
+        showToast('任务已保存！');
+        closeTaskModal();
+        loadTasks();
+      }
+    });
+}
+
+// 大模型管理
+let currentLlmHistory = [];
+function loadLlmConfig() {
+  req('/api/llm/config').then(res => {
+    if (!res.ok) return;
+    const c = res.config || {};
+    document.getElementById('llmBaseUrl').value = c.base_url || '';
+    document.getElementById('llmApiKey').value = c.api_key || '';
+    document.getElementById('llmTemp').value = c.temperature || 0.7;
+    document.getElementById('tempVal').innerText = c.temperature || 0.7;
+    
+    currentLlmHistory = res.history || [];
+    const hs = document.getElementById('llmHistorySelect');
+    hs.innerHTML = '<option value="">-- 选择历史厂商快速填充 URL 与 Key --</option>';
+    currentLlmHistory.forEach((item, idx) => {
+      const displayUrl = (item.base_url || '').replace(/^https?:\/\//, '');
+      hs.innerHTML += '<option value="' + idx + '">' + item.name + ' (' + displayUrl + ')</option>';
+    });
+
+    // 模型选择
+    const ms = document.getElementById('llmModelSelect');
+    if (c.model) {
+      let found = false;
+      for (let i=0; i<ms.options.length; i++) {
+        if (ms.options[i].value === c.model) { ms.selectedIndex = i; found = true; break; }
+      }
+      if (!found) {
+        ms.value = '__custom__';
+        document.getElementById('llmCustomModel').style.display = 'block';
+        document.getElementById('llmCustomModel').value = c.model;
+      } else {
+        document.getElementById('llmCustomModel').style.display = 'none';
+      }
+    } else {
+      ms.selectedIndex = 0;
+      document.getElementById('llmCustomModel').style.display = 'none';
+      document.getElementById('llmCustomModel').value = '';
+    }
+  });
+}
+
+function applyLlmHistory(idx) {
+  if (idx === '') return;
+  const item = currentLlmHistory[parseInt(idx)];
+  if (item) {
+    document.getElementById('llmBaseUrl').value = item.base_url || '';
+    document.getElementById('llmApiKey').value = item.api_key || '';
+    showToast('已载入 ' + item.name + ' 接口与密钥');
+  }
+}
+
+function onModelSelect(val) {
+  document.getElementById('llmCustomModel').style.display = (val === '__custom__') ? 'block' : 'none';
+}
+
+function fetchRemoteModels() {
+  const url = document.getElementById('llmBaseUrl').value.trim();
+  const key = document.getElementById('llmApiKey').value.trim();
+  if (!url || !key) { alert('请先填写 Base URL 和 API Key！'); return; }
+
+  showToast('正在探测远程模型列表...');
+  req('/api/llm/models', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ base_url: url, api_key: key })
+  }).then(res => {
+    if (res.ok && res.models && res.models.length) {
+      const ms = document.getElementById('llmModelSelect');
+      ms.innerHTML = '';
+      res.models.forEach(m => {
+        ms.innerHTML += '<option value="' + m + '">' + m + '</option>';
+      });
+      ms.innerHTML += '<option value="__custom__">-- 手动输入自定义模型 --</option>';
+      showToast('成功获取 ' + res.models.length + ' 个可用模型！');
+    } else {
+      showToast(res.error ? ('探测失败: ' + res.error) : '未能自动获取，可使用手动输入', 6000);
+    }
+  });
+}
+
+function saveLlmConfig() {
+  let model = document.getElementById('llmModelSelect').value;
+  if (model === '__custom__') {
+    model = document.getElementById('llmCustomModel').value.trim();
+  }
+  const payload = {
+    base_url: document.getElementById('llmBaseUrl').value.trim(),
+    api_key: document.getElementById('llmApiKey').value.trim(),
+    model: model,
+    temperature: parseFloat(document.getElementById('llmTemp').value)
+  };
+  req('/api/llm/config', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  }).then(res => {
+    if (res.ok) {
+      showToast('大模型配置已保存并加入历史！');
+      loadLlmConfig();
+    }
+  });
+}
+
+function sendLlmTest() {
+  const prompt = document.getElementById('llmTestInput').value.trim();
+  if (!prompt) return;
+  const out = document.getElementById('llmTestOutput');
+  out.innerText = '正在请求大模型，请稍候...';
+  req('/api/llm/test', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ prompt: prompt })
+  }).then(res => {
+    if (res.ok) {
+      out.innerText = res.reply;
+    } else {
+      out.innerText = '请求失败：' + (res.reply || '未知错误');
+    }
+  }).catch(e => { out.innerText = '异常：' + e; });
+}
+
+// 消息推送
+function loadPushConfig() {
+  req('/api/push/config').then(res => {
+    if (!res.ok) return;
+    const c = res.config || {};
+    document.getElementById('pushplusEnabled').checked = !!(c.pushplus && c.pushplus.enabled);
+    document.getElementById('pushplusToken').value = (c.pushplus && c.pushplus.token) || '';
+
+    document.getElementById('feishuEnabled').checked = !!(c.feishu && c.feishu.enabled);
+    document.getElementById('feishuWebhook').value = (c.feishu && c.feishu.webhook) || '';
+
+    document.getElementById('dingtalkEnabled').checked = !!(c.dingtalk && c.dingtalk.enabled);
+    document.getElementById('dingtalkWebhook').value = (c.dingtalk && c.dingtalk.webhook) || '';
+
+    document.getElementById('wechatworkEnabled').checked = !!(c.wechat_work && c.wechat_work.enabled);
+    document.getElementById('wechatworkWebhook').value = (c.wechat_work && c.wechat_work.webhook) || '';
+
+    document.getElementById('customEnabled').checked = !!(c.custom && c.custom.enabled);
+    document.getElementById('customUrl').value = (c.custom && c.custom.url) || '';
+
+    const pol = c.policy || {};
+    const modeEl = document.getElementById('pushPolicyMode');
+    if (modeEl) modeEl.value = pol.mode || 'all';
+    const dndEl = document.getElementById('pushDndEnabled');
+    if (dndEl) dndEl.checked = (pol.dnd_enabled !== false);
+    const startEl = document.getElementById('pushDndStart');
+    if (startEl) startEl.value = (pol.dnd_start !== undefined ? pol.dnd_start : 23);
+    const endEl = document.getElementById('pushDndEnd');
+    if (endEl) endEl.value = (pol.dnd_end !== undefined ? pol.dnd_end : 8);
+  });
+}
+
+function savePushConfig(showNotice = true) {
+  const payload = {
+    policy: {
+      mode: (document.getElementById('pushPolicyMode') ? document.getElementById('pushPolicyMode').value : 'all'),
+      dnd_enabled: (document.getElementById('pushDndEnabled') ? document.getElementById('pushDndEnabled').checked : true),
+      dnd_start: parseInt(document.getElementById('pushDndStart') ? document.getElementById('pushDndStart').value : 23),
+      dnd_end: parseInt(document.getElementById('pushDndEnd') ? document.getElementById('pushDndEnd').value : 8)
+    },
+    pushplus: {
+      enabled: document.getElementById('pushplusEnabled').checked,
+      token: document.getElementById('pushplusToken').value.trim()
+    },
+    feishu: {
+      enabled: document.getElementById('feishuEnabled').checked,
+      webhook: document.getElementById('feishuWebhook').value.trim()
+    },
+    dingtalk: {
+      enabled: document.getElementById('dingtalkEnabled').checked,
+      webhook: document.getElementById('dingtalkWebhook').value.trim()
+    },
+    wechat_work: {
+      enabled: document.getElementById('wechatworkEnabled').checked,
+      webhook: document.getElementById('wechatworkWebhook').value.trim()
+    },
+    custom: {
+      enabled: document.getElementById('customEnabled').checked,
+      url: document.getElementById('customUrl').value.trim(),
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      template: '{"title": "{title}", "content": "{content}"}'
+    }
+  };
+  return req('/api/push/config', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  }).then(res => {
+    if (res.ok && showNotice) showToast('推送配置已保存！');
+    return res;
+  });
+}
+
+function testPush(channel) {
+  // 1. 如果输入框有内容，自动勾选启用开关
+  if (channel === 'wechat_work') {
+    const el = document.getElementById('wechatworkWebhook');
+    if (el && el.value.trim()) document.getElementById('wechatworkEnabled').checked = true;
+  } else if (channel === 'pushplus') {
+    const el = document.getElementById('pushplusToken');
+    if (el && el.value.trim()) document.getElementById('pushplusEnabled').checked = true;
+  } else if (channel === 'feishu') {
+    const el = document.getElementById('feishuWebhook');
+    if (el && el.value.trim()) document.getElementById('feishuEnabled').checked = true;
+  } else if (channel === 'dingtalk') {
+    const el = document.getElementById('dingtalkWebhook');
+    if (el && el.value.trim()) document.getElementById('dingtalkEnabled').checked = true;
+  }
+
+  // 2. 自动保存当前配置
+  savePushConfig(false);
+
+  // 3. 构建当前填写的参数进行测试
+  const overrideCfg = {
+    wechat_work: {
+      enabled: true,
+      webhook: document.getElementById('wechatworkWebhook').value.trim()
+    },
+    pushplus: {
+      enabled: true,
+      token: document.getElementById('pushplusToken').value.trim()
+    },
+    feishu: {
+      enabled: true,
+      webhook: document.getElementById('feishuWebhook').value.trim()
+    },
+    dingtalk: {
+      enabled: true,
+      webhook: document.getElementById('dingtalkWebhook').value.trim()
+    },
+    custom: {
+      enabled: true,
+      url: document.getElementById('customUrl').value.trim(),
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      template: '{"title": "{title}", "content": "{content}"}'
+    }
+  };
+
+  showToast('正在向目标发送测试消息...');
+  req('/api/push/test', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ channel: channel, override_cfg: overrideCfg })
+  }).then(res => {
+    if (res.ok && res.results && res.results[channel]) {
+      const r = res.results[channel];
+      if (r.ok) {
+        showToast('🎉 测试消息已成功送达！请查看手机！', 5000);
+      } else {
+        alert('❌ 推送失败：' + (r.error || r.msg || '未知原因，请检查 Webhook 是否完整'));
+      }
+    } else {
+      alert('❌ 发送失败：请先输入有效的 Webhook 或 Token！');
+    }
+  }).catch(e => {
+    alert('请求异常：' + e);
+  });
+}
+
+// 网络与系统
+function scanWifi() {
+  showToast('正在扫描周围 2.4G WiFi (约需 3 秒)...');
+  req('/api/wifi/scan').then(res => {
+    if (res.ok && res.networks) {
+      const s = document.getElementById('wifiSelect');
+      s.innerHTML = '<option value="">-- 请选择 WiFi --</option>';
+      res.networks.forEach(n => {
+        s.innerHTML += '<option value="' + n.ssid + '">' + n.ssid + ' (' + n.rssi + ' dBm)</option>';
+      });
+      showToast('扫描完成，已发现 ' + res.networks.length + ' 个热点');
+    }
+  });
+}
+
+function saveApConfig() {
+  const ssid = document.getElementById('apSsidInput').value.trim();
+  const pwd = document.getElementById('apPasswordInput').value.trim();
+  if (pwd && pwd.length < 8) {
+    alert('热点密码至少需要 8 位字符！');
+    return;
+  }
+  showToast('正在更新热点设置...');
+  req('/api/wifi/ap_config', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ ssid: ssid, password: pwd })
+  }).then(res => {
+    if (res.ok) {
+      showToast('热点设置已生效！');
+      refreshStatus();
+    } else {
+      alert('保存失败：' + res.message);
+    }
+  });
+}
+
+function connectWifi() {
+  const ssid = document.getElementById('wifiSsid').value.trim();
+  const pwd = document.getElementById('wifiPassword').value.trim();
+  if (!ssid) { alert('请输入 WiFi 名称'); return; }
+
+  const useStatic = document.getElementById('useStaticIp').checked;
+  const staticIp = document.getElementById('staticIp').value.trim();
+  const subnet = document.getElementById('staticSubnet').value.trim();
+  const gateway = document.getElementById('staticGateway').value.trim();
+  const dns = document.getElementById('staticDns').value.trim();
+
+  if (useStatic && (!staticIp || !gateway)) {
+    alert('启用静态 IP 时，必须填写 IP 地址和默认网关！');
+    return;
+  }
+
+  showToast('正在连接 ' + ssid + '，请等待约 10 秒...');
+  req('/api/wifi/connect', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      ssid: ssid,
+      password: pwd,
+      use_static: useStatic,
+      static_ip: staticIp,
+      subnet: subnet,
+      gateway: gateway,
+      dns: dns
+    })
+  }).then(res => {
+    if (res.ok) {
+      assignedNewIp = res.message;
+      document.getElementById('newIpDisplay').innerText = 'http://' + assignedNewIp;
+      document.getElementById('wifiSuccessModal').classList.add('active');
+      refreshStatus();
+    } else {
+      alert('连接失败：' + res.message);
+    }
+  });
+}
+
+function savePassword() {
+  const enabled = document.getElementById('authEnabled').checked;
+  const pwd = document.getElementById('authPassword').value.trim();
+  req('/api/system/password', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ enabled: enabled, password: pwd })
+  }).then(res => {
+    if (res.ok) {
+      authToken = pwd;
+      localStorage.setItem('esp_token', pwd);
+      showToast('密码设置已保存！');
+    }
+  });
+}
+
+function rebootEsp() {
+  if (confirm('确定要重启 ESP32 吗？')) {
+    req('/api/system/reboot', { method: 'POST' }).then(() => {
+      showToast('ESP32 正在重启，请稍候 5 秒后刷新页面...');
+      setTimeout(() => location.reload(), 5000);
+    });
+  }
+}
+
+// 日志与分类过滤
+let currentLogCategory = 'all';
+
+function filterLogs(category) {
+  currentLogCategory = category;
+  ['all', 'task', 'system'].forEach(c => {
+    const el = document.getElementById('logTab' + c.charAt(0).toUpperCase() + c.slice(1));
+    if (el) {
+      if (c === category) el.classList.add('active');
+      else el.classList.remove('active');
+    }
+  });
+  loadLogs();
+}
+
+function loadLogs() {
+  req('/api/logs?category=' + encodeURIComponent(currentLogCategory)).then(res => {
+    if (!res.ok) return;
+    if (res.counts) {
+      const allEl = document.getElementById('countLogAll');
+      const taskEl = document.getElementById('countLogTask');
+      const sysEl = document.getElementById('countLogSystem');
+      if (allEl) allEl.innerText = res.counts.all || 0;
+      if (taskEl) taskEl.innerText = res.counts.task || 0;
+      if (sysEl) sysEl.innerText = res.counts.system || 0;
+    }
+    const c = document.getElementById('logsContainer');
+    if (!res.logs || res.logs.length === 0) {
+      c.innerHTML = '<div style="color:var(--text-muted); padding:30px; text-align:center;">暂无相关运行日志</div>';
+      return;
+    }
+    let html = '';
+    res.logs.forEach(l => {
+      const isSys = (l.category === 'system');
+      const tag = isSys
+        ? '<span class="badge badge-secondary" style="margin-right:8px; font-size:0.75rem; background:rgba(148,163,184,0.15); color:#94a3b8;">💻 系统运维</span>'
+        : '<span class="badge badge-info" style="margin-right:8px; font-size:0.75rem;">⏱️ 任务打卡</span>';
+      html += '<div class="log-item ' + l.status + '">';
+      html += '  <div class="log-header"><span>' + tag + '<strong>' + l.task_name + '</strong></span><span style="font-size:0.8rem; color:var(--text-muted);">' + l.time + '</span></div>';
+      html += '  <div style="margin-top:4px;">' + l.message + '</div>';
+      if (l.ai_diag) {
+        html += '  <div class="log-diag">🤖 <strong>AI 诊断建议</strong>：' + l.ai_diag + '</div>';
+      }
+      html += '</div>';
+    });
+    c.innerHTML = html;
+  });
+}
+
+function clearLogs() {
+  if (confirm('确定要清空所有日志吗？Flash 日志文件也将被重置。')) {
+    req('/api/logs', { method: 'DELETE' }).then(() => {
+      showToast('日志已成功清空');
+      loadLogs();
+    });
+  }
+}
+
+function downloadAllLogs() {
+  const url = '/api/logs/download' + (authToken ? '?token=' + encodeURIComponent(authToken) : '');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'esp32_system_logs.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast('📥 正在下载完整系统与任务日志...');
+}
+
+// 闪存文件资源管理器 (Flash Explorer)
+let currentFsPath = '/data';
+
+function refreshFlashExplorer() {
+  browseFlashPath(currentFsPath);
+}
+
+function browseFlashPath(path) {
+  currentFsPath = path || '/data';
+  const pathEl = document.getElementById('fsCurrentPath');
+  if (pathEl) pathEl.innerText = currentFsPath;
+  const listEl = document.getElementById('fsEntriesList');
+  if (listEl) listEl.innerHTML = '<div style="padding:15px; color:var(--text-muted); text-align:center;">⏳ 正在读取闪存目录...</div>';
+
+  req('/api/fs/list?path=' + encodeURIComponent(currentFsPath)).then(res => {
+    if (!res.ok) {
+      if (listEl) listEl.innerHTML = '<div style="padding:15px; color:var(--danger); text-align:center;">❌ 读取失败: ' + (res.error || '未知错误') + '</div>';
+      return;
+    }
+    const entries = res.entries || [];
+    if (entries.length === 0) {
+      if (listEl) listEl.innerHTML = '<div style="padding:15px; color:var(--text-muted); text-align:center;">（空目录）</div>';
+      return;
+    }
+    let html = '<table class="info-table" style="font-size:0.85rem;">';
+    html += '<thead><tr style="color:var(--text-muted); border-bottom:1px solid var(--border);"><th style="text-align:left; padding:6px;">文件/目录名称</th><th style="text-align:right; padding:6px;">大小</th><th style="text-align:center; padding:6px; width:110px;">操作</th></tr></thead><tbody>';
+    
+    if (currentFsPath !== '/' && currentFsPath !== '') {
+      const parts = currentFsPath.split('/').filter(Boolean);
+      parts.pop();
+      const parentPath = '/' + parts.join('/');
+      html += '<tr>';
+      html += '  <td style="padding:6px;"><a href="javascript:void(0)" onclick="browseFlashPath(\'' + parentPath + '\')" style="color:#38bdf8; text-decoration:none; font-weight:600;">📁 .. (返回上一级)</a></td>';
+      html += '  <td style="text-align:right; padding:6px; color:var(--text-muted);">--</td>';
+      html += '  <td style="text-align:center; padding:6px;"><button class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:0.75rem;" onclick="browseFlashPath(\'' + parentPath + '\')">进入</button></td>';
+      html += '</tr>';
+    }
+
+    entries.forEach(e => {
+      const sizeStr = e.is_dir ? '<span style="color:var(--text-muted);">文件夹</span>' : formatFileSize(e.size);
+      const icon = e.is_dir ? '📁' : (e.name.endsWith('.json') ? '📋' : (e.name.endsWith('.py') ? '🐍' : (e.name.endsWith('.log') || e.name.endsWith('.txt') ? '📜' : '📄')));
+      html += '<tr>';
+      if (e.is_dir) {
+        html += '  <td style="padding:6px;"><a href="javascript:void(0)" onclick="browseFlashPath(\'' + e.path + '\')" style="color:#38bdf8; text-decoration:none; font-weight:600;">' + icon + ' ' + e.name + '</a></td>';
+        html += '  <td style="text-align:right; padding:6px;">' + sizeStr + '</td>';
+        html += '  <td style="text-align:center; padding:6px;"><button class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:0.75rem;" onclick="browseFlashPath(\'' + e.path + '\')">进入</button></td>';
+      } else {
+        html += '  <td style="padding:6px;"><span style="color:#e2e8f0;">' + icon + ' ' + e.name + '</span></td>';
+        html += '  <td style="text-align:right; padding:6px; color:var(--text-muted);">' + sizeStr + '</td>';
+        html += '  <td style="text-align:center; padding:6px; white-space:nowrap;">';
+        html += '    <button class="btn btn-secondary btn-sm" style="padding:2px 6px; font-size:0.72rem;" onclick="previewFlashFile(\'' + e.path + '\')">👁️ 预览</button>';
+        if (e.path.startsWith('/data/') && e.name !== 'config.json' && e.name !== 'tasks.json') {
+          html += '    <button class="btn btn-secondary btn-sm" style="padding:2px 6px; font-size:0.72rem; margin-left:4px;" onclick="renameFlashItem(\'' + e.path + '\', \'' + e.name + '\')">✏️</button>';
+          html += '    <button class="btn btn-danger btn-sm" style="padding:2px 6px; font-size:0.72rem; margin-left:4px;" onclick="deleteFlashItem(\'' + e.path + '\', \'' + e.name + '\')">🗑️</button>';
+        }
+        html += '  </td>';
+      }
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    if (listEl) listEl.innerHTML = html;
+  });
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+function previewFlashFile(path) {
+  req('/api/fs/read?path=' + encodeURIComponent(path)).then(res => {
+    if (!res.ok) {
+      alert('❌ 无法预览文件: ' + (res.error || '读取失败'));
+      return;
+    }
+    const modal = document.getElementById('filePreviewModal');
+    const titleEl = document.getElementById('previewModalTitle');
+    const contentEl = document.getElementById('previewFileContent');
+    const infoEl = document.getElementById('previewFileInfo');
+    if (titleEl) titleEl.innerText = '📄 查看文件: ' + path;
+    if (infoEl) {
+      infoEl.innerText = '大小: ' + formatFileSize(res.size) + (res.truncated ? ' (文件较大，仅预览前 16KB)' : '');
+    }
+    if (contentEl) contentEl.value = res.content || '';
+    if (modal) modal.style.display = 'flex';
+  });
+}
+
+function closeFilePreviewModal() {
+  const modal = document.getElementById('filePreviewModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function copyPreviewContent() {
+  const el = document.getElementById('previewFileContent');
+  if (el) copyText(el.value);
+}
+
+// 登录门禁与认证逻辑
+let _lockoutTimer = null;
+
+function handleGatewayLockout(retryAfterSec) {
+  const errDiv = document.getElementById('gatewayError');
+  const btn = document.getElementById('gatewaySubmitBtn');
+  const pwdInput = document.getElementById('gatewayPassword');
+  if (_lockoutTimer) clearInterval(_lockoutTimer);
+
+  let rem = retryAfterSec;
+  if (btn) btn.disabled = true;
+  if (pwdInput) pwdInput.disabled = true;
+
+  const updateDisplay = () => {
+    if (rem <= 0) {
+      clearInterval(_lockoutTimer);
+      _lockoutTimer = null;
+      if (errDiv) {
+        errDiv.innerText = '✅ 安全封锁已解除，可重新输入密码。';
+        errDiv.style.color = '#10b981';
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = '🚀 验证并进入控制台';
+      }
+      if (pwdInput) {
+        pwdInput.disabled = false;
+        pwdInput.focus();
+      }
+      return;
+    }
+    if (errDiv) {
+      errDiv.innerText = '⛔ 多次输错密码，系统已安全锁定！请等待 ' + rem + ' 秒后重试。';
+      errDiv.style.color = '#ef4444';
+      errDiv.style.display = 'block';
+    }
+    if (btn) {
+      btn.innerText = '⏳ 锁定中 (' + rem + 's)';
+    }
+    rem--;
+  };
+
+  updateDisplay();
+  _lockoutTimer = setInterval(updateDisplay, 1000);
+}
+
+function showLoginGateway() {
+  const gw = document.getElementById('loginGateway');
+  if (gw) {
+    gw.style.display = 'flex';
+    const pwdInput = document.getElementById('gatewayPassword');
+    if (pwdInput) {
+      pwdInput.value = '';
+      setTimeout(() => pwdInput.focus(), 150);
+    }
+    // Check if system is currently locked
+    fetch('/api/auth/status').then(r => r.json()).then(res => {
+      if (res.ok && res.locked && res.retry_after > 0) {
+        handleGatewayLockout(res.retry_after);
+      }
+    }).catch(() => {});
+  }
+}
+
+function hideLoginGateway() {
+  const gw = document.getElementById('loginGateway');
+  if (gw) gw.style.display = 'none';
+}
+
+function submitGatewayLogin() {
+  const pwdInput = document.getElementById('gatewayPassword');
+  const errDiv = document.getElementById('gatewayError');
+  const btn = document.getElementById('gatewaySubmitBtn');
+  const pwd = (pwdInput ? pwdInput.value : '').trim();
+  if (!pwd) {
+    if (errDiv) {
+      errDiv.innerText = '⚠️ 请输入管理员密码';
+      errDiv.style.color = '#ef4444';
+      errDiv.style.display = 'block';
+    }
+    return;
+  }
+  if (btn) {
+    btn.innerText = '正在验证...';
+    btn.disabled = true;
+  }
+  if (errDiv) errDiv.style.display = 'none';
+
+  fetch('/api/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ password: pwd })
+  }).then(async r => {
+    let data = {};
+    try { data = await r.json(); } catch(e) {}
+    return { status: r.status, data: data };
+  }).then(({ status, data }) => {
+    if (status === 200 && data.ok) {
+      if (btn) {
+        btn.innerText = '🚀 验证并进入控制台';
+        btn.disabled = false;
+      }
+      authToken = data.token;
+      localStorage.setItem('esp_token', authToken);
+      hideLoginGateway();
+      showToast('✅ 验证成功，已进入控制台！');
+      startDashboardLoops();
+      return;
+    }
+
+    if (status === 429 || data.locked) {
+      handleGatewayLockout(data.retry_after || 300);
+      return;
+    }
+
+    if (btn) {
+      btn.innerText = '🚀 验证并进入控制台';
+      btn.disabled = false;
+    }
+    if (errDiv) {
+      errDiv.style.color = '#ef4444';
+      if (data.remaining_attempts !== undefined) {
+        errDiv.innerText = '❌ 密码错误！还剩 ' + data.remaining_attempts + ' 次机会（连续 5 次将锁定 5 分钟）';
+      } else {
+        errDiv.innerText = '❌ ' + (data.error || '密码错误，请重新输入');
+      }
+      errDiv.style.display = 'block';
+    }
+    if (pwdInput) pwdInput.select();
+  }).catch(e => {
+    if (btn) {
+      btn.innerText = '🚀 验证并进入控制台';
+      btn.disabled = false;
+    }
+    if (errDiv) {
+      errDiv.innerText = '❌ 连接失败: ' + e;
+      errDiv.style.color = '#ef4444';
+      errDiv.style.display = 'block';
+    }
+  });
+}
+
+function logoutSession() {
+  if (confirm('确定要退出当前控制台管理登录吗？')) {
+    localStorage.removeItem('esp_token');
+    authToken = '';
+    showLoginGateway();
+    showToast('已安全退出登录');
+  }
+}
+
+let _loopsStarted = false;
+
+// 仪表盘打卡日历热力图 (Activity Heatmap)
+function loadDashboardHeatmap() {
+  req('/api/tasks/heatmap').then(res => {
+    if (!res.ok) return;
+    const heatmap = res.heatmap || {};
+    const container = document.getElementById('dashHeatmapContainer');
+    if (!container) return;
+
+    const now = new Date();
+    const days = [];
+    for (let i = 62; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 86400000);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      days.push(yyyy + '-' + mm + '-' + dd);
+    }
+
+    let totalSucc = 0;
+    let totalFail = 0;
+    days.forEach(dStr => {
+      const item = heatmap[dStr] || { success: 0, fail: 0 };
+      totalSucc += item.success;
+      totalFail += item.fail;
+    });
+
+    let gridHtml = '';
+    days.forEach(dStr => {
+      const item = heatmap[dStr] || { success: 0, fail: 0 };
+      const s = item.success;
+      const f = item.fail;
+
+      let bg = '#1e293b';
+      let border = '1px solid rgba(51, 65, 85, 0.4)';
+      if (s === 1) bg = 'rgba(16, 185, 129, 0.35)';
+      else if (s === 2) bg = 'rgba(16, 185, 129, 0.65)';
+      else if (s >= 3) bg = '#10b981';
+
+      if (f > 0) {
+        border = '1.5px solid #ef4444';
+      }
+
+      const tip = `${dStr}: 达标 ${s} 次, 失败 ${f} 次`;
+      gridHtml += `<div class="heatmap-tile" style="width:14px; height:14px; border-radius:3px; background:${bg}; border:${border}; cursor:pointer; transition:transform 0.15s;" title="${tip}" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'"></div>`;
+    });
+
+    container.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span style="font-size:0.88rem; font-weight:700; color:#fff;">📈 过去 60 天打卡热力图</span>
+        <div style="font-size:0.78rem; color:var(--text-muted); display:flex; gap:12px;">
+          <span>累计达标: <b style="color:var(--success);">${totalSucc}</b> 次</span>
+          <span>异常: <b style="color:${totalFail > 0 ? 'var(--danger)' : 'var(--text-muted)'};">${totalFail}</b> 次</span>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-rows: repeat(7, 14px); grid-auto-flow: column; grid-auto-columns: 14px; gap:4px; overflow-x:auto; padding-bottom:6px;">
+        ${gridHtml}
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:0.72rem; color:var(--text-muted);">
+        <span>早晨 ↔ 晚间</span>
+        <div style="display:flex; align-items:center; gap:4px;">
+          <span>少</span>
+          <span style="width:10px; height:10px; border-radius:2px; background:#1e293b; display:inline-block;"></span>
+          <span style="width:10px; height:10px; border-radius:2px; background:rgba(16,185,129,0.35); display:inline-block;"></span>
+          <span style="width:10px; height:10px; border-radius:2px; background:rgba(16,185,129,0.65); display:inline-block;"></span>
+          <span style="width:10px; height:10px; border-radius:2px; background:#10b981; display:inline-block;"></span>
+          <span>多</span>
+          <span style="margin-left:8px;"><span style="width:8px; height:8px; border-radius:2px; border:1.5px solid #ef4444; display:inline-block; vertical-align:middle;"></span> 异常</span>
+        </div>
+      </div>
+    `;
+  });
+}
+
+// 电源与动态变频
+function savePowerConfig() {
+  const enabled = document.getElementById('powerDfsEnabled').checked;
+  const idleFreq = parseInt(document.getElementById('powerIdleFreq').value);
+  req('/api/system/power', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dfs_enabled: enabled, idle_freq: idleFreq, busy_freq: 240 })
+  }).then(res => {
+    if (res.ok) {
+      showToast('CPU变频策略已更新！当前时钟: ' + res.current_freq_mhz + ' MHz');
+      refreshStatus();
+    }
+  });
+}
+
+// 闪存文件删除与重命名
+function deleteFlashItem(path, name) {
+  if (!confirm('⚠️ 确定要永久删除闪存文件 "' + name + '" 吗？\n路径：' + path + '\n此操作不可撤销！')) return;
+  req('/api/fs/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: path })
+  }).then(res => {
+    if (res.ok) {
+      showToast('文件已成功删除！');
+      refreshFlashExplorer();
+    } else {
+      alert('❌ 删除失败：' + (res.error || '未知错误'));
+    }
+  });
+}
+
+function renameFlashItem(oldPath, oldName) {
+  const newName = prompt('请输入新的文件名：', oldName);
+  if (!newName || newName.trim() === '' || newName === oldName) return;
+  const parts = oldPath.split('/');
+  parts.pop();
+  const newPath = parts.join('/') + '/' + newName.trim();
+  req('/api/fs/rename', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ old_path: oldPath, new_path: newPath })
+  }).then(res => {
+    if (res.ok) {
+      showToast('文件已重命名！');
+      refreshFlashExplorer();
+    } else {
+      alert('❌ 重命名失败：' + (res.error || '未知错误'));
+    }
+  });
+}
+
+function startDashboardLoops() {
+  refreshStatus();
+  loadTasks();
+  loadDashboardHeatmap();
+  if (!_loopsStarted) {
+    _loopsStarted = true;
+    setInterval(() => {
+      if (authToken) refreshStatus();
+    }, 6000);
+    setInterval(tickUptimeClock, 1000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && authToken) {
+        refreshStatus();
+      }
+    });
+  }
+}
+
+function checkAuthAndInit() {
+  if (!authToken) {
+    showLoginGateway();
+    return;
+  }
+  fetch('/api/auth/verify', {
+    headers: { 'Authorization': 'Bearer ' + authToken }
+  }).then(r => {
+    if (r.ok) {
+      hideLoginGateway();
+      startDashboardLoops();
+    } else {
+      localStorage.removeItem('esp_token');
+      authToken = '';
+      showLoginGateway();
+    }
+  }).catch(() => {
+    hideLoginGateway();
+    startDashboardLoops();
+  });
+}
+
+// 自动守卫检测
+checkAuthAndInit();
+
+function exportBackup() {
+  const token = getAuthToken();
+  const url = '/api/backup/export' + (token ? '?token=' + encodeURIComponent(token) : '');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'esp32_backup.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast('📥 正在下载系统备份文件...');
+}
+
+function importBackup(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!confirm('⚠️ 确定要从文件「' + file.name + '」恢复配置与任务吗？\n\n恢复后将覆盖当前任务与配置！')) {
+    e.target.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = JSON.parse(evt.target.result);
+      req('/api/backup/import', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+      }).then(res => {
+        if (res.ok) {
+          alert('🎉 备份恢复成功！点击确定重新加载系统。');
+          window.location.reload();
+        } else {
+          alert('恢复失败：' + (res.error || '数据格式异常'));
+        }
+      });
+    } catch (err) {
+      alert('备份文件解析失败：不是合法的 JSON 格式！');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function loadLedConfig() {
+  req('/api/led/config').then(res => {
+    if (res.ok && res.config) {
+      document.getElementById('ledEnabled').checked = !!res.config.enabled;
+      document.getElementById('ledPin').value = res.config.pin !== undefined ? res.config.pin : 48;
+      const b = res.config.brightness || 20;
+      document.getElementById('ledBrightness').value = b;
+      document.getElementById('ledBrightnessVal').innerText = b;
+    }
+  });
+}
+
+function saveLedConfig() {
+  const enabled = document.getElementById('ledEnabled').checked;
+  const pin = parseInt(document.getElementById('ledPin').value) || 48;
+  const brightness = parseInt(document.getElementById('ledBrightness').value) || 20;
+  req('/api/led/config', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ enabled: enabled, pin: pin, brightness: brightness })
+  }).then(res => {
+    if (res.ok) showToast('💡 RGB 状态灯配置已更新并生效！');
+  });
+}
+
+function testLedColor(color) {
+  req('/api/led/test', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ color: color })
+  }).then(res => {
+    if (res.ok) {
+      showToast('🌈 已发送 ' + color + ' 测试信号！');
+    } else {
+      alert('测试失败：' + (res.error || res.message));
+    }
+  });
+}
+
+
+// 认证 Token 获取辅助函数
+function getAuthToken() {
+  return authToken || localStorage.getItem('esp_token') || '';
+}
+
+// 浏览器一键更新 Cookie 书签生成与操作
+function openBookmarkletModal(taskId, taskName) {
+  document.getElementById('bookmarkletTaskName').innerText = taskName || taskId;
+  const origin = window.location.origin;
+  const token = getAuthToken();
+  const code = "javascript:(function(){var c=document.cookie;if(!c){alert('⚠️ 未能检测到当前页面的 Cookie，请确认已在当前网站登录！');return;}var url='" + origin + "/api/tasks/" + taskId + "/cookie?token=" + encodeURIComponent(token) + "';fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookie:c})}).then(function(r){return r.json();}).then(function(d){if(d.ok){var expTxt=d.cookie_days!==null?('\n剩余有效: '+d.cookie_days+'天'):'';alert('🎉 ESP32 Cookie 自动同步成功！'+expTxt);}else{alert('❌ 同步失败: '+(d.error||d.message));}}).catch(function(e){prompt('⚠️ 提示：因浏览器跨域安全策略无法直连ESP32，已为您提取当前Cookie，请按Ctrl+C复制后去后台粘贴：', c);});})();";
+
+  const link = document.getElementById('bookmarkletLink');
+  link.href = code;
+  document.getElementById('bookmarkletCodeText').value = code;
+  document.getElementById('bookmarkletModal').style.display = 'flex';
+}
+
+function closeBookmarkletModal() {
+  document.getElementById('bookmarkletModal').style.display = 'none';
+}
+
+function copyBookmarkletCode() {
+  const ta = document.getElementById('bookmarkletCodeText');
+  ta.select();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(ta.value).then(() => {
+      showToast('✅ 书签脚本代码已复制到剪贴板！');
+    }).catch(() => {
+      document.execCommand('copy');
+      showToast('✅ 书签脚本代码已复制到剪贴板！');
+    });
+  } else {
+    document.execCommand('copy');
+    showToast('✅ 书签脚本代码已复制到剪贴板！');
+  }
+}
+
+// 智能故障熔断重置
+function resetTaskCircuit(taskId) {
+  if (!confirm('确定要手动解除此任务的故障熔断状态吗？解除后定时调度将立即恢复。')) return;
+  req('/api/tasks/' + taskId + '/reset_circuit', { method: 'POST' }).then(res => {
+    if (res.ok) {
+      showToast('✅ ' + (res.message || '熔断已解除，任务恢复正常调度！'));
+      loadTasks();
+    } else {
+      showToast('❌ 解除失败: ' + (res.error || res.message));
+    }
+  }).catch(e => showToast('❌ 请求失败: ' + e.message));
+}
+
+// 历史自动备份快照管理
+function loadBackupSnapshots() {
+  const container = document.getElementById('snapshotList');
+  if (!container) return;
+  container.innerHTML = '<span style="color:var(--text-muted);">⏳ 正在加载快照...</span>';
+  req('/api/backup/snapshots').then(res => {
+    if (res.ok && res.snapshots) {
+      if (res.snapshots.length === 0) {
+        container.innerHTML = '<span style="color:var(--text-muted);">暂无闪存自动快照（周报触发或执行重要操作时将自动创建）</span>';
+        return;
+      }
+      let html = '<div style="display:flex; flex-direction:column; gap:8px;">';
+      res.snapshots.forEach(s => {
+        const sizeKb = Math.round((s.size || 0) / 1024 * 10) / 10;
+        html += '<div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; padding:8px 12px; border-radius:8px; border:1px solid var(--border);">';
+        html += '  <div>';
+        html += '    <div style="font-weight:600; color:#fff; font-size:0.82rem;">📸 ' + s.filename + '</div>';
+        html += '    <div style="font-size:0.75rem; color:var(--text-muted);">大小: ' + sizeKb + ' KB</div>';
+        html += '  </div>';
+        html += '  <button class="btn btn-secondary btn-sm" onclick="restoreSnapshot(\'' + s.filename + '\')" style="padding:4px 10px; font-size:0.75rem; border-color:rgba(56,189,248,0.4); color:var(--accent);">⏪ 恢复此快照</button>';
+        html += '</div>';
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    } else {
+      container.innerHTML = '<span style="color:var(--danger);">加载快照失败</span>';
+    }
+  }).catch(e => {
+    container.innerHTML = '<span style="color:var(--danger);">加载出错: ' + e.message + '</span>';
+  });
+}
+
+function restoreSnapshot(filename) {
+  if (!confirm('确定要从快照【' + filename + '】恢复系统配置和自动化任务吗？\n恢复后当前配置将被该快照覆盖！')) return;
+  showToast('正在恢复快照...');
+  req('/api/backup/snapshots/restore', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename: filename })
+  }).then(res => {
+    if (res.ok) {
+      showToast('🎉 ' + (res.message || '快照恢复成功！'), 3000);
+      setTimeout(() => window.location.reload(), 1200);
+    } else {
+      showToast('❌ 恢复失败: ' + (res.error || res.message));
+    }
+  }).catch(e => showToast('❌ 请求失败: ' + e.message));
+}
+
+// 立即触发自动化体检与周报测试
+function triggerWeeklyReportTest() {
+  const btn = document.getElementById('btnTriggerReport');
+  const statusSpan = document.getElementById('reportTriggerStatus');
+  if (btn) btn.disabled = true;
+  if (statusSpan) statusSpan.innerText = '正在生成并推送周报...';
+  showToast('正在聚合7天战绩并推送周报...');
+
+  req('/api/system/trigger_report', { method: 'POST' }).then(res => {
+    if (btn) btn.disabled = false;
+    if (statusSpan) statusSpan.innerText = '';
+    if (res.ok) {
+      showToast('🎉 周报已生成并成功推送！已创建自动备份快照。', 4000);
+      loadBackupSnapshots();
+    } else {
+      showToast('❌ 推送失败: ' + (res.error || res.message));
+    }
+  }).catch(e => {
+    if (btn) btn.disabled = false;
+    if (statusSpan) statusSpan.innerText = '';
+    showToast('❌ 请求异常: ' + e.message);
+  });
+}
+
+
+// 在线实时 HTTP 调试控制台 (Mini Postman)
+function openHttpDebugger(taskId) {
+  const task = tasksList.find(t => t.id === taskId);
+  if (!task) return;
+  const p = task.params || {};
+  document.getElementById('debugMethod').value = (p.method || 'GET').toUpperCase();
+  document.getElementById('debugUrl').value = p.url || '';
+
+  let hdrs = p.headers || {};
+  if (typeof hdrs === 'object') {
+    let lines = [];
+    for (let k in hdrs) {
+      lines.push(k + ': ' + hdrs[k]);
+    }
+    document.getElementById('debugHeaders').value = lines.join('\n');
+  } else {
+    document.getElementById('debugHeaders').value = hdrs || '';
+  }
+
+  let body = p.body || '';
+  if (typeof body === 'object') body = JSON.stringify(body, null, 2);
+  document.getElementById('debugBody').value = body;
+
+  // Reset response views
+  document.getElementById('debugStatusCode').style.display = 'none';
+  document.getElementById('debugLatency').innerText = '';
+  document.getElementById('debugResponseBody').value = '点击上方「🚀 发送请求」开始在 ESP32 上实时发起请求并观测结果...';
+  document.getElementById('debugResponseHeadersTable').innerHTML = '暂无响应头';
+  document.getElementById('debugResponseCookiesList').innerHTML = '未返回 Set-Cookie';
+
+  switchDebugReqTab('headers');
+  switchDebugRespTab('body');
+
+  document.getElementById('httpDebugModal').style.display = 'flex';
+}
+
+function closeHttpDebugger() {
+  document.getElementById('httpDebugModal').style.display = 'none';
+}
+
+function switchDebugReqTab(tab) {
+  document.getElementById('debugTabReqHeaders').classList.toggle('active', tab === 'headers');
+  document.getElementById('debugTabReqBody').classList.toggle('active', tab === 'body');
+  document.getElementById('debugReqHeadersPane').style.display = (tab === 'headers') ? 'block' : 'none';
+  document.getElementById('debugReqBodyPane').style.display = (tab === 'body') ? 'block' : 'none';
+}
+
+function switchDebugRespTab(tab) {
+  document.getElementById('debugTabRespBody').classList.toggle('active', tab === 'body');
+  document.getElementById('debugTabRespHeaders').classList.toggle('active', tab === 'headers');
+  document.getElementById('debugTabRespCookies').classList.toggle('active', tab === 'cookies');
+  document.getElementById('debugRespBodyPane').style.display = (tab === 'body') ? 'block' : 'none';
+  document.getElementById('debugRespHeadersPane').style.display = (tab === 'headers') ? 'block' : 'none';
+  document.getElementById('debugRespCookiesPane').style.display = (tab === 'cookies') ? 'block' : 'none';
+}
+
+function copyDebugResponseBody() {
+  const ta = document.getElementById('debugResponseBody');
+  ta.select();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(ta.value).then(() => showToast('已复制响应正文'));
+  } else {
+    document.execCommand('copy');
+    showToast('已复制响应正文');
+  }
+}
+
+function sendHttpDebug() {
+  const method = document.getElementById('debugMethod').value;
+  const url = document.getElementById('debugUrl').value.trim();
+  if (!url) {
+    alert('请输入有效的请求目标 URL！');
+    return;
+  }
+
+  const rawHeaders = document.getElementById('debugHeaders').value.trim();
+  let headersObj = {};
+  if (rawHeaders) {
+    try {
+      if (rawHeaders.startsWith('{')) {
+        headersObj = JSON.parse(rawHeaders);
+      } else {
+        rawHeaders.split('\n').forEach(line => {
+          line = line.trim();
+          if (line && line.includes(':')) {
+            const idx = line.indexOf(':');
+            const k = line.substring(0, idx).trim();
+            const v = line.substring(idx + 1).trim();
+            if (k) headersObj[k] = v;
+          }
+        });
+      }
+    } catch (e) {
+      alert('请求头解析失败，请检查格式！');
+      return;
+    }
+  }
+
+  const body = document.getElementById('debugBody').value;
+  const btn = document.getElementById('btnSendDebug');
+  btn.disabled = true;
+  btn.innerText = '正在请求...';
+
+  const statusBadge = document.getElementById('debugStatusCode');
+  const latencySpan = document.getElementById('debugLatency');
+  statusBadge.style.display = 'none';
+  latencySpan.innerText = '发送中...';
+
+  req('/api/http/debug', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      method: method,
+      url: url,
+      headers: headersObj,
+      body: body
+    })
+  }).then(res => {
+    btn.disabled = false;
+    btn.innerText = '🚀 发送请求';
+
+    if (res.ok) {
+      const code = res.status_code;
+      statusBadge.innerText = code + ' ' + (code >= 200 && code < 300 ? 'OK' : (code === 403 ? 'Forbidden' : (code === 401 ? 'Unauthorized' : (code === 404 ? 'Not Found' : ''))));
+      statusBadge.style.display = 'inline-flex';
+      if (code >= 200 && code < 300) {
+        statusBadge.style.background = 'rgba(16,185,129,0.2)';
+        statusBadge.style.color = '#10b981';
+        statusBadge.style.borderColor = '#10b981';
+      } else if (code >= 400) {
+        statusBadge.style.background = 'rgba(239,68,68,0.2)';
+        statusBadge.style.color = '#ef4444';
+        statusBadge.style.borderColor = '#ef4444';
+      } else {
+        statusBadge.style.background = 'rgba(245,158,11,0.2)';
+        statusBadge.style.color = '#f59e0b';
+        statusBadge.style.borderColor = '#f59e0b';
+      }
+
+      latencySpan.innerText = '⏱️ 耗时: ' + res.latency_ms + ' ms' + (res.truncated ? ' (正文已截取前4KB)' : '');
+
+      let prettyBody = res.body || '';
+      try {
+        prettyBody = JSON.stringify(JSON.parse(res.body), null, 2);
+      } catch (e) {}
+      document.getElementById('debugResponseBody').value = prettyBody;
+
+      // Headers table
+      let hHtml = '<table style="width:100%; border-collapse:collapse;">';
+      for (let hk in (res.headers || {})) {
+        hHtml += '<tr><td style="color:#38bdf8; padding:3px 8px; vertical-align:top; border-bottom:1px solid #1e293b; font-weight:600;">' + hk + ':</td>' +
+                 '<td style="color:#cbd5e1; padding:3px 8px; border-bottom:1px solid #1e293b; word-break:break-all;">' + res.headers[hk] + '</td></tr>';
+      }
+      hHtml += '</table>';
+      document.getElementById('debugResponseHeadersTable').innerHTML = hHtml;
+
+      // Cookies list
+      const cookies = res.set_cookies || [];
+      if (cookies.length > 0) {
+        let cHtml = '<div style="display:flex; flex-direction:column; gap:4px;">';
+        cookies.forEach(c => {
+          cHtml += '<div style="padding:4px 8px; background:#0f172a; border-radius:4px; word-break:break-all;">' + c + '</div>';
+        });
+        cHtml += '</div>';
+        document.getElementById('debugResponseCookiesList').innerHTML = cHtml;
+      } else {
+        document.getElementById('debugResponseCookiesList').innerHTML = '<span style="color:var(--text-muted);">未返回 Set-Cookie 头部</span>';
+      }
+
+    } else {
+      statusBadge.innerText = 'ERR';
+      statusBadge.style.display = 'inline-flex';
+      statusBadge.style.background = 'rgba(239,68,68,0.2)';
+      statusBadge.style.color = '#ef4444';
+      statusBadge.style.borderColor = '#ef4444';
+      latencySpan.innerText = '⏱️ ' + (res.latency_ms || 0) + ' ms';
+      document.getElementById('debugResponseBody').value = '❌ 请求异常: ' + (res.error || '未知错误');
+    }
+  }).catch(err => {
+    btn.disabled = false;
+    btn.innerText = '🚀 发送请求';
+    statusBadge.innerText = 'FAIL';
+    statusBadge.style.display = 'inline-flex';
+    statusBadge.style.background = 'rgba(239,68,68,0.2)';
+    statusBadge.style.color = '#ef4444';
+    latencySpan.innerText = '';
+    document.getElementById('debugResponseBody').value = '❌ 请求失败: ' + err.message;
+  });
+}
+
+</script>
+<!-- 文件在线预览弹窗 -->
+<div class="modal-overlay" id="filePreviewModal">
+  <div class="modal-content" style="max-width: 750px; width: 95%;">
+    <div class="modal-header">
+      <div class="modal-title" id="previewModalTitle">📄 查看闪存文件</div>
+      <button class="modal-close" onclick="closeFilePreviewModal()">&times;</button>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:0.8rem; color:var(--text-muted);">
+      <span id="previewFileInfo">大小: 0 B</span>
+      <button class="btn btn-secondary btn-sm" onclick="copyPreviewContent()">📋 复制全文</button>
+    </div>
+    <div class="form-group" style="margin-bottom:0;">
+      <textarea id="previewFileContent" class="form-control" style="font-family:Consolas, Monaco, monospace; font-size:0.82rem; height:380px; white-space:pre; overflow-x:auto; background:#0b1120; color:#e2e8f0;" readonly></textarea>
+    </div>
+    <div style="text-align:right; margin-top:14px;">
+      <button class="btn btn-secondary" onclick="closeFilePreviewModal()">关闭</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
