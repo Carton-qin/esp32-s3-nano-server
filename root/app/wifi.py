@@ -199,7 +199,7 @@ class WiFiManager:
             print("[WiFi] Scan error:", e)
             return []
 
-    def set_sta(self, ssid, password, use_static=False, static_ip="", subnet="", gateway="", dns=""):
+    async def set_sta(self, ssid, password, use_static=False, static_ip="", subnet="", gateway="", dns=""):
         wifi_cfg = {
             "ssid": ssid.strip(),
             "password": password.strip(),
@@ -212,10 +212,16 @@ class WiFiManager:
         self.config_mgr.config["wifi"] = wifi_cfg
         self.config_mgr.save_config()
         
-        # Do NOT shut down AP so the current browser session stays connected!
+        # 激活 STA 接口并关闭硬件休眠
         self.sta.active(True)
         try:
             self.sta.config(pm=0)
+        except Exception:
+            pass
+
+        # 若之前执行过扫描或连接，先断开以保证底层握手状态机重置
+        try:
+            self.sta.disconnect()
         except Exception:
             pass
 
@@ -225,15 +231,19 @@ class WiFiManager:
                 self.sta.ifconfig((static_ip.strip(), wifi_cfg["subnet"], gateway.strip(), wifi_cfg["dns"]))
             except Exception as e:
                 print("[WiFi] Error setting static IP:", e)
-        else:
-            try:
-                self.sta.ifconfig(('0.0.0.0', '0.0.0.0', '0.0.0.0', '0.0.0.0'))
-            except Exception:
-                pass
 
+        try:
+            import uasyncio as asyncio
+        except ImportError:
+            import asyncio
+
+        await asyncio.sleep(0.2)
+
+        print("[WiFi] Web UI connecting to STA:", wifi_cfg["ssid"])
         self.sta.connect(wifi_cfg["ssid"], wifi_cfg["password"])
         
-        for _ in range(30):
+        # 非阻塞轮询等待 WiFi 握手与 DHCP 获取 IP（最长等待 15 秒）
+        for _ in range(50):
             if self.sta.isconnected():
                 try:
                     self.sta.config(pm=0)
@@ -243,9 +253,13 @@ class WiFiManager:
                 self.current_ip = self.sta.ifconfig()[0]
                 self.mode = "STA+AP"
                 print("[WiFi] Switch to STA success! IP:", self.current_ip)
-                self.sync_ntp()
+                self.config_mgr.add_log("system", "网络连接", "success", "网页配网成功，已连接至 " + wifi_cfg["ssid"] + " (IP: " + self.current_ip + ")", category="system")
+                try:
+                    asyncio.create_task(self._async_sync_ntp())
+                except Exception:
+                    pass
                 return True, self.current_ip
-            time.sleep(0.5)
+            await asyncio.sleep(0.3)
             
         try:
             self.sta.disconnect()
@@ -253,6 +267,14 @@ class WiFiManager:
         except Exception:
             pass
         return False, "连接超时，请检查WiFi密码或确认网络为2.4GHz"
+
+    async def _async_sync_ntp(self):
+        try:
+            import uasyncio as asyncio
+        except ImportError:
+            import asyncio
+        await asyncio.sleep(1)
+        self.sync_ntp()
 
     def sync_ntp(self):
         servers = ["ntp.aliyun.com", "cn.pool.ntp.org", "pool.ntp.org"]

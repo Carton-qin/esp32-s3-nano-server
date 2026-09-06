@@ -2431,7 +2431,7 @@ function saveApConfig() {
 
 function connectWifi() {
   const ssid = document.getElementById('wifiSsid').value.trim();
-  const pwd = document.getElementById('wifiPassword').value.trim();
+  const pwd = document.getElementById('wifiPassword').value;
   if (!ssid) { alert('请输入 WiFi 名称'); return; }
 
   const useStatic = document.getElementById('useStaticIp').checked;
@@ -2445,7 +2445,14 @@ function connectWifi() {
     return;
   }
 
-  showToast('正在连接 ' + ssid + '，请等待约 10 秒...');
+  const btn = (typeof event !== 'undefined' && event && event.target) ? event.target : null;
+  const oldText = btn ? btn.innerText : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = '⏳ 正在连接路由器中...';
+  }
+
+  showToast('正在连接 ' + ssid + '，请稍候...');
   req('/api/wifi/connect', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -2459,6 +2466,10 @@ function connectWifi() {
       dns: dns
     })
   }).then(res => {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = oldText;
+    }
     if (res.ok) {
       assignedNewIp = res.message;
       document.getElementById('newIpDisplay').innerText = 'http://' + assignedNewIp;
@@ -2467,6 +2478,12 @@ function connectWifi() {
     } else {
       alert('连接失败：' + res.message);
     }
+  }).catch(err => {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = oldText;
+    }
+    alert('请求已发送！如果开发板已成功联网，请将手机连回路由器 WiFi 并访问 http://esp32.local');
   });
 }
 

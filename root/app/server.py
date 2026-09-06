@@ -623,7 +623,7 @@ def create_app(config_mgr, wifi_mgr, llm_client, notifier, executor, rgb_manager
         gateway = data.get("gateway", "").strip()
         dns = data.get("dns", "").strip()
 
-        ok, msg = wifi_mgr.set_sta(ssid, pwd, use_static, static_ip, subnet, gateway, dns)
+        ok, msg = await wifi_mgr.set_sta(ssid, pwd, use_static, static_ip, subnet, gateway, dns)
         return json_resp({"ok": ok, "message": msg})
 
     @app.route('/api/wifi/ap_config', methods=['POST'])
