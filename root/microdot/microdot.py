@@ -1407,11 +1407,18 @@ class Microdot:
         except Exception as exc:  # pragma: no cover
             print_exception(exc)
 
+        if not req:
+            return
+
+        print('[Server] Req:', req.method, req.path)
         res = await self.dispatch_request(req)
+        print('[Server] Res status:', res.status_code)
         try:
             if res != Response.already_handled:  # pragma: no branch
                 await res.write(writer)
+                print('[Server] Res.write done')
             await writer.aclose()
+            print('[Server] Closed')
         except OSError as exc:  # pragma: no cover
             if exc.errno in MUTED_SOCKET_ERRORS:
                 pass

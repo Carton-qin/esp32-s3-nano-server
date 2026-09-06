@@ -122,22 +122,21 @@ class WiFiManager:
         target_ssid = (ssid or ap_cfg.get("ssid") or "ESP32-Server-Setup").strip()
         target_pwd = (password if password is not None else ap_cfg.get("password", "")).strip()
 
-        # 必须先确保 AP 关闭，在 active(True) 前配置好 IP 与 SSID，以保证 ESP-IDF DHCPS 正常向客户端下发 IP
-        if self.ap.active():
-            self.ap.active(False)
-            time.sleep(0.1)
+        # 必须先激活 AP 接口才能配置参数，否则 ESP-IDF 会报 Wifi Invalid Mode
+        self.ap.active(True)
+
+        try:
+            if target_pwd and len(target_pwd) >= 8:
+                self.ap.config(essid=target_ssid, password=target_pwd, authmode=network.AUTH_WPA2_PSK)
+            else:
+                self.ap.config(essid=target_ssid, authmode=network.AUTH_OPEN)
+        except Exception as e:
+            print("[WiFi] AP config warning:", e)
 
         try:
             self.ap.ifconfig(('192.168.4.1', '255.255.255.0', '192.168.4.1', '192.168.4.1'))
         except Exception:
             pass
-
-        if target_pwd and len(target_pwd) >= 8:
-            self.ap.config(essid=target_ssid, password=target_pwd, authmode=network.AUTH_WPA2_PSK)
-        else:
-            self.ap.config(essid=target_ssid, authmode=network.AUTH_OPEN)
-
-        self.ap.active(True)
 
         self.mode = "STA+AP" if self.is_connected else "AP"
         print("[WiFi] AP active. SSID:", target_ssid, "IP:", self.ap.ifconfig()[0], "Security:", "WPA2" if (target_pwd and len(target_pwd) >= 8) else "OPEN")

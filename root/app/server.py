@@ -47,10 +47,16 @@ def create_app(config_mgr, wifi_mgr, llm_client, notifier, executor, rgb_manager
             
         return False
 
-    # 1. Static Web UI (Streamed via send_file)
+    # 1. Static Web UI (Streamed via send_file, prefer gzip for fast low-memory transfer)
     @app.route('/')
     async def index(req):
         try:
+            accept_enc = req.headers.get('Accept-Encoding', '')
+            if 'gzip' in accept_enc:
+                try:
+                    return send_file('/static/index.html.gz', compressed=True)
+                except Exception:
+                    pass
             return send_file('/static/index.html')
         except Exception as e:
             return Response(body="Index file error: " + str(e), status_code=500)
@@ -58,6 +64,12 @@ def create_app(config_mgr, wifi_mgr, llm_client, notifier, executor, rgb_manager
     @app.route('/static/<path:path>')
     async def static_files(req, path):
         try:
+            accept_enc = req.headers.get('Accept-Encoding', '')
+            if 'gzip' in accept_enc:
+                try:
+                    return send_file('/static/' + path + '.gz', compressed=True)
+                except Exception:
+                    pass
             return send_file('/static/' + path)
         except Exception:
             return Response(body="File not found", status_code=404)
