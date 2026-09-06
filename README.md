@@ -135,7 +135,7 @@
 
 ```bash
 # 1. 克隆本仓库
-git clone https://github.com/your-username/esp32-s3-nano-server.git
+git clone https://github.com/Carton-qin/esp32-s3-nano-server.git
 cd esp32-s3-nano-server
 
 # 2. 安装部署所需的 Python 依赖工具 (mpremote, esptool, pyserial)
