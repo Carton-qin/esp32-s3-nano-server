@@ -167,7 +167,35 @@ def upload_project(port):
     print("\n[*] 全部核心文件同步完成！正在重启开发板...")
     subprocess.run([sys.executable, "-m", "mpremote", "connect", port, "reset"])
     print("[+] 部署圆满完成！开发板已重启并运行新系统。")
-    return True
+def configure_wifi_via_serial(port, ssid, password):
+    """直接通过 USB 串口写入 WiFi 配置"""
+    print(f"[*] 正在通过串口 {port} 为开发板写入 WiFi 配置 (SSID: '{ssid}') ...", flush=True)
+    py_code = f"""
+import json
+p = '/data/config.json'
+try:
+    with open(p, 'r') as f:
+        c = json.load(f)
+except Exception:
+    c = {{}}
+c.setdefault('wifi', {{}})['ssid'] = {json.dumps(ssid)}
+c['wifi']['password'] = {json.dumps(password)}
+c['wifi']['use_static_ip'] = False
+with open(p, 'w') as f:
+    json.dump(c, f)
+print('WIFI_CONFIG_SAVED')
+"""
+    cmd = [sys.executable, "-m", "mpremote", "connect", port, "exec", py_code]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    if "WIFI_CONFIG_SAVED" in res.stdout:
+        print("[+] WiFi 配置写入成功！正在重启开发板使配置生效...")
+        subprocess.run([sys.executable, "-m", "mpremote", "connect", port, "reset"])
+        print("[+] 重启完成！开发板将在 2~5 秒内自动连接到您的 WiFi。")
+        print("[+] 您可以直接在电脑浏览器中访问: http://esp32.local")
+        return True
+    else:
+        print(f"[!] 写入配置失败:\n{res.stderr.strip()}")
+        return False
 
 def main():
     print_banner()
@@ -175,6 +203,7 @@ def main():
     parser.add_argument("--port", "-p", help="指定开发板串口号 (例如: COM7, /dev/ttyUSB0)")
     parser.add_argument("--flash", "-f", action="store_true", help="是否从零烧录 MicroPython 固件")
     parser.add_argument("--bin", "-b", help="MicroPython 固件路径 (.bin)")
+    parser.add_argument("--wifi", nargs=2, metavar=("SSID", "PASSWORD"), help="直接通过 USB 串口写入 WiFi 配置 (例如: --wifi MyWifi 12345678)")
     args = parser.parse_args()
 
     # 1. 检查串口
@@ -198,7 +227,12 @@ def main():
                 print("[!] 输入无效，退出部署")
                 sys.exit(1)
 
-    # 2. 自动检测连接的芯片类型
+    # 2. 如果仅传递了 --wifi，直接通过串口写入 WiFi 并重启，无需重新部署全量代码
+    if args.wifi and not args.flash:
+        configure_wifi_via_serial(port, args.wifi[0], args.wifi[1])
+        return
+
+    # 3. 自动检测连接的芯片类型
     chip_type = detect_chip(port)
 
     # 3. 固件烧录（若开启）
@@ -230,6 +264,11 @@ def main():
     if not upload_project(port):
         print("[!] 代码部署失败，请检查串口连接或占用情况。")
         sys.exit(1)
+
+    # 5. 若携带了 --wifi，在部署完成后立即自动写入并联网
+    if args.wifi:
+        configure_wifi_via_serial(port, args.wifi[0], args.wifi[1])
+        return
 
     print("""
 ============================================================
