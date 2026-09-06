@@ -59,54 +59,53 @@ def run_cmd(cmd, desc=None, check=True):
     return True
 
 def detect_chip(port):
-    """自动通过 esptool 识别连接的芯片架构 (ESP32-S3 首选)"""
+    """自动通过 esptool 识别连接的芯片架构 (严格限定 ESP32-S3)"""
     print(f"[*] 正在自动检测 {port} 连接的芯片型号...", flush=True)
     cmd = [sys.executable, "-m", "esptool", "--port", port, "chip_id"]
     res = subprocess.run(cmd, capture_output=True, text=True)
     out = (res.stdout + res.stderr).lower()
 
     if "esp32-s3" in out:
-        print("[+] 识别芯片架构: ESP32-S3 (Xtensa 双核 240MHz，原生首选)")
+        print("[+] 识别芯片架构: ESP32-S3 (Xtensa 双核 240MHz + PSRAM，完全支持)")
         return "esp32s3"
-    elif "esp32-c3" in out:
-        print("[!] 检测到芯片型号为 ESP32-C3。")
-        print("[!] ⚠️ 架构警告：ESP32-C3 为单核 RISC-V 且无外部 PSRAM（仅 128KB 内存）。")
-        print("[!] ⚠️ 内存与单核性能无法支撑本项目 49 个全套 API 与异步微服务器系统。")
-        print("[!] ⚠️ 强烈推荐使用 ESP32-S3 开发板运行本项目！")
-        sys.exit(1)
-    elif "esp32" in out:
-        print("[+] 识别芯片架构: ESP32 (经典双核)")
-        return "esp32"
     else:
-        print("[*] 未能精准识别芯片，将交由 esptool 自动协商")
-        return "auto"
+        if "esp32-c3" in out:
+            chip_name = "ESP32-C3 (单核 RISC-V)"
+        elif "esp32" in out:
+            chip_name = "经典 ESP32 (无足够 PSRAM)"
+        else:
+            chip_name = "非 ESP32-S3 芯片"
+        print(f"[!] 检测到芯片型号为: {chip_name}。")
+        print("[!] ⚠️ 硬件架构不兼容：本项目专为 ESP32-S3 深度定制开发！")
+        print("[!] ⚠️ 本项目包含 49 个全套 RESTful API、Gzip 微前端控制台、Cron 调度、大模型诊断等复杂系统。")
+        print("[!] ⚠️ 经典 ESP32 与 ESP32-C3 开发板因缺乏外部 PSRAM（可用内存不足 120KB），无法稳定支撑网络缓冲与并发，极易发生 OOM 或连接超时。")
+        print("[!] ⚠️ 请更换使用 ESP32-S3 开发板（推荐具备 8MB PSRAM 的 N8R8 / N16R8 型号）！")
+        sys.exit(1)
 
 def flash_micropython(port, chip_type, bin_path):
-    """刷写 MicroPython 固件"""
+    """刷写 MicroPython 固件 (ESP32-S3)"""
     if not os.path.exists(bin_path):
         print(f"[!] 找不到固件文件: {bin_path}")
         return False
 
-    print(f"\n[*] 正在准备为 {chip_type.upper()} 烧录 MicroPython 固件: {bin_path}")
+    print(f"\n[*] 正在准备为 ESP32-S3 烧录 MicroPython 固件: {bin_path}")
     print("[*] 步骤 1/2: 擦除 Flash 闪存...")
-    chip_arg = ["--chip", chip_type] if chip_type != "auto" else []
-    erase_cmd = [sys.executable, "-m", "esptool"] + chip_arg + ["--port", port, "erase-flash"]
+    erase_cmd = [sys.executable, "-m", "esptool", "--chip", "esp32s3", "--port", port, "erase-flash"]
     if not run_cmd(erase_cmd, "擦除芯片闪存"):
         # 兼容旧版本 esptool
-        erase_cmd = [sys.executable, "-m", "esptool"] + chip_arg + ["--port", port, "erase_flash"]
+        erase_cmd = [sys.executable, "-m", "esptool", "--chip", "esp32s3", "--port", port, "erase_flash"]
         if not run_cmd(erase_cmd, "擦除芯片闪存 (重试)"):
             return False
 
     print("[*] 步骤 2/2: 写入固件...")
-    offset = "0" if chip_type in ("esp32s3", "esp32c3", "esp32c6", "esp32s2") else "0x1000"
     write_cmd = [
-        sys.executable, "-m", "esptool"
-    ] + chip_arg + [
+        sys.executable, "-m", "esptool",
+        "--chip", "esp32s3",
         "--port", port,
         "--baud", "460800",
-        "write_flash", "-z", offset, bin_path
+        "write_flash", "-z", "0", bin_path
     ]
-    if not run_cmd(write_cmd, f"写入 MicroPython 固件 (基地址: {offset})"):
+    if not run_cmd(write_cmd, "写入 MicroPython 固件 (基地址: 0)"):
         return False
 
     print("[+] 固件烧录成功！等待芯片冷启动 (3秒)...")
@@ -304,19 +303,12 @@ def main():
         bin_file = args.bin
         if not bin_file:
             cur_dir = os.path.dirname(os.path.abspath(__file__))
-            # 根据侦测到的芯片类型智能匹配
-            if chip_type == "esp32s3":
-                bins = [os.path.join(cur_dir, f) for f in os.listdir(cur_dir) if f.endswith(".bin") and "S3" in f.upper()]
-            elif chip_type == "esp32":
-                bins = [os.path.join(cur_dir, f) for f in os.listdir(cur_dir) if f.endswith(".bin") and "GENERIC-" in f.upper() and "S3" not in f.upper()]
-            else:
-                bins = [os.path.join(cur_dir, f) for f in os.listdir(cur_dir) if f.endswith(".bin") and "S3" in f.upper()]
-
+            bins = [os.path.join(cur_dir, f) for f in os.listdir(cur_dir) if f.endswith(".bin") and "S3" in f.upper()]
             if bins:
                 bin_file = bins[0]
-                print(f"[*] 自动匹配到对应芯片的本地 MicroPython 固件: {bin_file}")
+                print(f"[*] 自动匹配到 ESP32-S3 本地 MicroPython 固件: {bin_file}")
             else:
-                print(f"[!] 未找到匹配 {chip_type.upper()} 的 .bin 固件包，请使用 --bin 指定固件路径")
+                print("[!] 未在当前目录下找到 ESP32-S3 的 .bin 固件包，请使用 --bin 指定固件路径")
                 sys.exit(1)
 
         if not flash_micropython(port, chip_type, bin_file):

@@ -101,19 +101,19 @@
 
 本项目是针对 **ESP32-S3 双核微控制器** 打造的富功能嵌入式 Web 服务器平台（全套 49 个 RESTful API + 现代化微前端 Web 控制台 + 任务调度器 + AI 诊断引擎）：
 
-| 硬件系列 | 芯片架构与主频 | 板载内存支持 | 推荐程度 | 常见推荐开发板型号 |
+| 硬件系列 | 芯片架构与主频 | 板载内存支持 | 兼容状态 | 常见推荐开发板型号 |
 | :--- | :--- | :--- | :--- | :--- |
-| **ESP32-S3** 系列 | Xtensa® 双核 240MHz | 4MB/8MB/16MB PSRAM | 🌟 **强烈推荐（原生首选）** | 乐鑫官方 DevKitC-1、合宙 ESP32-S3、YD-ESP32-S3 (双Type-C)、立创开源S3 等 |
-| **经典 ESP32 (WROVER)** | Xtensa® 双核 240MHz | 4MB/8MB PSRAM | 兼容支持 | ESP32-WROVER-B / ESP32-WROVER-E 等带 PSRAM 模组开发板 |
+| **ESP32-S3 系列 (带 PSRAM)** | Xtensa® 双核 240MHz | 2MB / 8MB / 16MB PSRAM | 🌟 **完全原生支持（首选）** | 乐鑫官方 DevKitC-1、合宙 ESP32-S3、YD-ESP32-S3 (双Type-C)、立创开源S3 等 (N8R8 / N16R8) |
+| **经典 ESP32 / ESP32-C3** | 单核/双核 (无外部 PSRAM) | 仅 ~120KB 可用堆 | ❌ **不兼容 / 不支持** | 经典 ESP32-WROOM、ESP32-C3 等由于板载 SRAM 极小，无法承载 49 个 API 与并发 Web 流量 |
 
 > [!IMPORTANT]
-> **硬件选型说明**：
-> - **强烈推荐使用 ESP32-S3 系列开发板**（建议搭载 8MB/16MB Flash 与 2MB/8MB PSRAM，如常见的 N8R8 / N16R8 规格），可完美流畅运行所有后台 API、大模型诊断与前端流式界面。
-> - **关于 ESP32-C3 / C2**：由于 C3 为单核 RISC-V 架构且普遍无外部扩展 PSRAM（可用内存仅 ~120KB），不足以支撑本套包含 49 个 API 与全套控制台的完整系统，因此**不建议且不支持在 ESP32-C3 上部署运行**。
+> **硬件唯一支持说明**：
+> - **必须使用 ESP32-S3 系列开发板**（强烈推荐搭载 8MB/16MB Flash 与 8MB Octal/Quad PSRAM，如市面通用的 **N8R8** 或 **N16R8** 规格），可提供 >7.8MB 可用堆内存，完美流畅运行所有后台 API、大模型诊断与前端流式界面。
+> - **为什么不支持经典 ESP32 与 ESP32-C3？**：经典 ESP32-WROOM 与 ESP32-C3 普遍无板载外部扩展 PSRAM，启动 MicroPython 后系统剩余可用堆内存仅剩约 20~30KB。在多协程任务、lwIP 网络协议栈分配 socket buffer 以及传输前端单页静态资源时，会直接因内存碎片枯竭触发 OOM（内存溢出）或连接挂起无响应。因此本项目**严格限定在 ESP32-S3 开发板**上运行。
 
 - **Flash 存储**：支持 **4MB / 8MB / 16MB SPI Flash**（自动动态计算容量与配额）；
-- **PSRAM 内存**：支持 **Octal-SPI / Quad-SPI PSRAM**（自动管理可用堆内存）；
-- **芯片智能识别**：`deploy.py` 一键部署工具会自动通过硬件串口识别芯片类型，并自动烧录对应的官方 S3 固件。
+- **PSRAM 内存**：原生支持 **Octal-SPI / Quad-SPI PSRAM**（自动管理可用堆内存）；
+- **芯片智能校验**：`deploy.py` 一键部署工具会自动通过硬件串口校验芯片类型，非 ESP32-S3 会自动拦截提示，并自动烧录对应的官方 S3 固件。
 
 ---
 
@@ -142,7 +142,7 @@ pip install -r requirements.txt
 # 1. 自动检测串口并部署系统（若开发板已刷有 MicroPython）：
 python deploy.py
 
-# 2. 若是一块全新的开发板（全自动芯片识别 + 擦除 Flash + 智能烧录对应固件 + 传输代码）：
+# 2. 若是一块全新的开发板（全自动芯片识别 + 擦除 Flash + 智能烧录 ESP32-S3 固件 + 传输代码）：
 python deploy.py --flash
 
 # 3. 极速配网：部署完成后直接通过 USB 串口写入 WiFi（部署完开发板秒连 WiFi，无需手机搜热点）：
@@ -150,13 +150,10 @@ python deploy.py --wifi "你的WiFi名称" "你的WiFi密码"
 ```
 
 > 💡 **小贴士**：
-> - `deploy.py` 会**自动扫描串口**并**自动识别芯片架构**（ESP32-S3 / ESP32-C3 / 经典 ESP32）；
-> - 仓库内已预置乐鑫官方最新版固件（位于 `firmware/` 目录）：
->   * ESP32-S3 固件：`ESP32_GENERIC_S3-SPIRAM_OCT-20260824-v1.29.0.bin`
->   * ESP32-C3 固件：`ESP32_GENERIC_C3-20260824-v1.29.0.bin`
->   * 经典 ESP32 固件：`ESP32_GENERIC-20260824-v1.29.0.bin`
-> - `deploy.py --flash` 会自动根据所插开发板类型，智能挑选正确的固件一键烧录！也可以通过 `--port COMx`（Windows）或 `--port /dev/ttyUSB0`（macOS/Linux）手动指定串口；
-> - **内存深度优化**：仓库已内置全量预编译字节码（`.mpy`），并在部署时优先上传 `.mpy` 替代 raw `.py`。即便在无外部 PSRAM 的单核 ESP32-C3（仅 160KB RAM）或经典 ESP32 上，也拥有充裕的可用堆内存，绝不发生 `MemoryError`。
+> - `deploy.py` 会**自动扫描串口**并**自动校验 ESP32-S3 芯片架构**；
+> - 仓库根目录已预置乐鑫官方最新版 ESP32-S3 固件：
+>   * `ESP32_GENERIC_S3-SPIRAM_OCT-20260824-v1.29.0.bin` (支持 Octal/Quad PSRAM)
+> - `deploy.py --flash` 会自动一键擦除并烧录该固件！也可以通过 `--port COMx`（Windows）或 `--port /dev/ttyUSB0`（macOS/Linux）手动指定串口。
 
 ---
 
