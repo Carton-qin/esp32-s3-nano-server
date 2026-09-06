@@ -206,11 +206,12 @@ def main():
         bin_file = args.bin
         if not bin_file:
             # 根据侦测到的芯片类型智能匹配
-            bins = []
             if chip_type == "esp32c3":
                 bins = [f for f in os.listdir(".") if f.endswith(".bin") and "C3" in f.upper()]
             elif chip_type == "esp32s3":
                 bins = [f for f in os.listdir(".") if f.endswith(".bin") and "S3" in f.upper()]
+            elif chip_type == "esp32":
+                bins = [f for f in os.listdir(".") if f.endswith(".bin") and "GENERIC-" in f.upper() and "S3" not in f.upper() and "C3" not in f.upper()]
             else:
                 bins = [f for f in os.listdir(".") if f.endswith(".bin")]
 

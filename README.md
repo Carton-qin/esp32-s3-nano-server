@@ -112,16 +112,17 @@
 
 ## 🔌 硬件支持与兼容性
 
-本项目专为 **ESP32-S3 全系列开发板** 打造，纯软件方案，无需任何额外硬件外设：
+本项目全面支持 **ESP32 全家族开发板**（纯软件方案，无需任何额外硬件外设）：
 
-| 硬件规格 | 兼容性说明 |
-| :--- | :--- |
-| **主控芯片** | **ESP32-S3 全系列**（双核 Xtensa® 32-bit LX7，最高 240MHz） |
-| **开发板型号** | 乐鑫官方 ESP32-S3-DevKitC-1、合宙 ESP32-S3 (CORE / SuperMini)、YD-ESP32-S3 (双 Type-C)、立创开源 S3、NodeMCU-ESP32-S3 等 |
-| **Flash 闪存** | 支持 **4MB / 8MB / 16MB SPI Flash**（自动动态计算容量与配额） |
-| **PSRAM 内存** | 支持 **Octal-SPI (8线) / Quad-SPI (4线) / 无 PSRAM 版本**（自动管理可用堆内存） |
-| **板载按键** | 统一使用 **GPIO 0 (BOOT 键)** 作为硬件长按 5 秒救援重置按键（所有 ESP32-S3 芯片出厂硬件标准） |
-| **板载 RGB 灯** | 默认支持 WS2812 状态指示灯（默认引脚 GPIO 48，可在控制台自由修改为 GPIO 38/8 或一键关闭；板载无 RGB 灯自动静默容错） |
+| 硬件系列 | 芯片架构与主频 | BOOT救援键 | 板载指示灯 | 适用常见开发板型号 |
+| :--- | :--- | :--- | :--- | :--- |
+| **ESP32-S3** 系列 | Xtensa® 双核 240MHz | GPIO 0 | 默认 WS2812 (GPIO 48/38) | 乐鑫官方 DevKitC-1、合宙 ESP32-S3、YD-ESP32-S3 (双Type-C)、立创开源S3 等 |
+| **ESP32-C3** 系列 | RISC-V 单核 160MHz | GPIO 9 | 默认 WS2812 (GPIO 8) | 合宙 ESP32-C3 (CORE / SuperMini)、安信可 NodeMCU-ESP-C3 等 |
+| **标准 ESP32** 系列 | Xtensa® 双核 240MHz | GPIO 0 | 普通 LED (GPIO 2 / 静默) | ESP32-WROOM-32、ESP32-WROVER (带PSRAM)、NodeMCU-32S、DevKit V1 等 |
+
+- **Flash 存储**：支持 **4MB / 8MB / 16MB SPI Flash**（自动动态计算容量与配额）；
+- **PSRAM 内存**：支持 **Octal-SPI / Quad-SPI / 无 PSRAM 版本**（自动管理可用堆内存）；
+- **芯片智能识别**：`deploy.py` 一键部署工具会自动通过硬件串口识别芯片类型，并自动烧录对应的官方固件。
 
 ---
 
