@@ -6,18 +6,31 @@ except ImportError:
     import asyncio
 
 class BootButtonWatcher:
-    def __init__(self, wifi_mgr, config_mgr, rgb_manager=None, pin_num=0):
+    def __init__(self, wifi_mgr, config_mgr, rgb_manager=None, pin_num=None):
         self.wifi_mgr = wifi_mgr
         self.config_mgr = config_mgr
         self.rgb_manager = rgb_manager
-        self.pin = machine.Pin(pin_num, machine.Pin.IN, machine.Pin.PULL_UP)
+        
+        if pin_num is None:
+            # ESP32-C3 出厂物理 BOOT 引脚为 GPIO 9；ESP32-S3 与经典 ESP32 为 GPIO 0
+            pin_num = 0
+            try:
+                import sys
+                m = getattr(sys.implementation, '_machine', '').lower()
+                if 'c3' in m:
+                    pin_num = 9
+            except Exception:
+                pass
+                
+        self.pin_num = pin_num
+        self.pin = machine.Pin(self.pin_num, machine.Pin.IN, machine.Pin.PULL_UP)
         self.running = False
         self.pressed_ms = 0
         self.action_triggered = False
 
     async def start(self):
         self.running = True
-        print('[Button] BOOT button watcher started on GPIO 0 (Long press 5s to reset WiFi to AP mode).')
+        print(f'[Button] BOOT button watcher started on GPIO {self.pin_num} (Long press 5s to reset WiFi to AP mode).')
         while self.running:
             try:
                 is_pressed = (self.pin.value() == 0)

@@ -16,8 +16,15 @@ class RGBManager:
 
     def _init_hardware(self):
         led_cfg = self.config_mgr.config.get("led", {})
-        self.enabled = led_cfg.get("enabled", True)
-        self.pin_num = led_cfg.get("pin", 48)
+        default_pin = 48
+        try:
+            import sys
+            m = getattr(sys.implementation, '_machine', '').lower()
+            if 'c3' in m:
+                default_pin = 8
+        except Exception:
+            pass
+        self.pin_num = led_cfg.get("pin", default_pin)
         self.brightness = max(1, min(100, led_cfg.get("brightness", 20)))
 
         if not self.enabled:

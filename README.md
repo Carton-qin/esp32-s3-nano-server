@@ -144,19 +144,22 @@ pip install -r requirements.txt
 
 ### 步骤 2：连接开发板并一键部署
 
-将 ESP32-S3 开发板通过 Type-C 数据线连接至电脑 USB 口：
+将 ESP32-S3 或 ESP32-C3 开发板通过 Type-C 数据线连接至电脑 USB 口：
 
 ```bash
 # 自动检测串口并部署系统（若开发板已刷有 MicroPython）：
 python deploy.py
 
-# 若是一块全新的开发板（从零擦除 Flash 并烧录 MicroPython 固件）：
+# 若是一块全新的开发板（全自动芯片识别 + 擦除 Flash + 智能烧录对应固件 + 传输代码）：
 python deploy.py --flash
 ```
 
 > 💡 **小贴士**：
-> - `deploy.py` 会自动扫描并识别系统中的 ESP32 串口；也可以通过 `--port COMx`（Windows）或 `--port /dev/ttyUSB0`（macOS/Linux）手动指定。
-> - 仓库内已预置乐鑫官方最新版高性能固件 `ESP32_GENERIC_S3-SPIRAM_OCT-20260824-v1.29.0.bin`。
+> - `deploy.py` 会**自动扫描串口**并**自动识别芯片架构**（ESP32-S3 / ESP32-C3 / 经典 ESP32）；
+> - 仓库内已预置乐鑫官方最新版固件：
+>   * ESP32-S3 固件：`ESP32_GENERIC_S3-SPIRAM_OCT-20260824-v1.29.0.bin`
+>   * ESP32-C3 固件：`ESP32_GENERIC_C3-20260824-v1.29.0.bin`
+> - `deploy.py --flash` 会自动根据所插开发板类型，智能挑选正确的固件一键烧录！也可以通过 `--port COMx`（Windows）或 `--port /dev/ttyUSB0`（macOS/Linux）手动指定串口。
 
 ---
 

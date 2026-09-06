@@ -117,8 +117,14 @@ class ConfigManager:
             import machine
             cur_mhz = machine.freq() // 1000000
             if cur_mhz != target_mhz:
-                machine.freq(target_mhz * 1000000)
-                print("[Power] Dynamic CPU clock scaled to {}MHz (busy={})".format(target_mhz, busy))
+                try:
+                    machine.freq(target_mhz * 1000000)
+                    print("[Power] Dynamic CPU clock scaled to {}MHz (busy={})".format(target_mhz, busy))
+                except Exception:
+                    # 针对 ESP32-C3 等最高仅支持 160MHz 的芯片回退
+                    if target_mhz > 160:
+                        machine.freq(160000000)
+                        print("[Power] Dynamic CPU clock scaled to 160MHz (chip limit)")
         except Exception as e:
             print("[Power] Error setting CPU frequency:", e)
 
