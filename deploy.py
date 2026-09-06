@@ -139,10 +139,9 @@ def ensure_mpy_compiled(base_dir):
 
 def upload_project(port):
     """上传项目源码及静态资源到开发板"""
-    base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "root")
-    if not os.path.exists(base_dir):
-        print(f"[!] 找不到源码目录: {base_dir}")
-        return False
+    cur_dir = os.path.dirname(os.path.abspath(__file__))
+    has_root = os.path.exists(os.path.join(cur_dir, "root"))
+    base_dir = os.path.join(cur_dir, "root") if has_root else cur_dir
 
     # 尝试自动预编译字节码
     ensure_mpy_compiled(base_dir)
@@ -160,10 +159,17 @@ def upload_project(port):
         subprocess.run([sys.executable, "-m", "mpremote", "connect", port, "fs", "mkdir", rd], capture_output=True)
 
     # 2. 收集本地文件列表（若存在 .mpy，则优先使用 .mpy 并跳过同名 .py 以节省内存）
+    ignore_files = {
+        "deploy.py", "requirements.txt", "README.md", "LICENSE", ".gitignore"
+    }
+    ignore_dirs = {".git", ".github", "docs", "scratch", ".system_generated"}
     all_files = []
-    for root, _, files in os.walk(base_dir):
+    for root, dirs, files in os.walk(base_dir):
+        dirs[:] = [d for d in dirs if d not in ignore_dirs and not d.startswith(".")]
         for f in files:
-            if f.endswith(".pyc") or "__pycache__" in root:
+            if f.endswith((".pyc", ".bin", ".tmp", ".log")) or "__pycache__" in root:
+                continue
+            if not has_root and (f in ignore_files or f.startswith(".")):
                 continue
             all_files.append((root, f))
 
@@ -257,7 +263,7 @@ print('WIFI_CONFIG_SAVED')
 
 def main():
     print_banner()
-    parser = argparse.ArgumentParser(description="ESP32 / ESP32-S3 / ESP32-C3 Nano-Server 一键部署工具")
+    parser = argparse.ArgumentParser(description="ESP32-S3 Nano-Server 一键部署工具")
     parser.add_argument("--port", "-p", help="指定开发板串口号 (例如: COM7, /dev/ttyUSB0)")
     parser.add_argument("--flash", "-f", action="store_true", help="是否从零烧录 MicroPython 固件")
     parser.add_argument("--bin", "-b", help="MicroPython 固件路径 (.bin)")
@@ -297,13 +303,14 @@ def main():
     if args.flash:
         bin_file = args.bin
         if not bin_file:
+            cur_dir = os.path.dirname(os.path.abspath(__file__))
             # 根据侦测到的芯片类型智能匹配
             if chip_type == "esp32s3":
-                bins = [f for f in os.listdir(".") if f.endswith(".bin") and "S3" in f.upper()]
+                bins = [os.path.join(cur_dir, f) for f in os.listdir(cur_dir) if f.endswith(".bin") and "S3" in f.upper()]
             elif chip_type == "esp32":
-                bins = [f for f in os.listdir(".") if f.endswith(".bin") and "GENERIC-" in f.upper() and "S3" not in f.upper()]
+                bins = [os.path.join(cur_dir, f) for f in os.listdir(cur_dir) if f.endswith(".bin") and "GENERIC-" in f.upper() and "S3" not in f.upper()]
             else:
-                bins = [f for f in os.listdir(".") if f.endswith(".bin") and "S3" in f.upper()]
+                bins = [os.path.join(cur_dir, f) for f in os.listdir(cur_dir) if f.endswith(".bin") and "S3" in f.upper()]
 
             if bins:
                 bin_file = bins[0]
