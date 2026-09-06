@@ -97,19 +97,23 @@
 
 ---
 
-## 🔌 硬件支持与兼容性
+## 🔌 硬件支持与推荐配置
 
-本项目全面支持 **ESP32 全家族开发板**（纯软件方案，无需任何额外硬件外设）：
+本项目是针对 **ESP32-S3 双核微控制器** 打造的富功能嵌入式 Web 服务器平台（全套 49 个 RESTful API + 现代化微前端 Web 控制台 + 任务调度器 + AI 诊断引擎）：
 
-| 硬件系列 | 芯片架构与主频 | BOOT救援键 | 板载指示灯 | 适用常见开发板型号 |
+| 硬件系列 | 芯片架构与主频 | 板载内存支持 | 推荐程度 | 常见推荐开发板型号 |
 | :--- | :--- | :--- | :--- | :--- |
-| **ESP32-S3** 系列 | Xtensa® 双核 240MHz | GPIO 0 | 默认 WS2812 (GPIO 48/38) | 乐鑫官方 DevKitC-1、合宙 ESP32-S3、YD-ESP32-S3 (双Type-C)、立创开源S3 等 |
-| **ESP32-C3** 系列 | RISC-V 单核 160MHz | GPIO 9 | 默认 WS2812 (GPIO 8) | 合宙 ESP32-C3 (CORE / SuperMini)、安信可 NodeMCU-ESP-C3 等 |
-| **标准 ESP32** 系列 | Xtensa® 双核 240MHz | GPIO 0 | 普通 LED (GPIO 2 / 静默) | ESP32-WROOM-32、ESP32-WROVER (带PSRAM)、NodeMCU-32S、DevKit V1 等 |
+| **ESP32-S3** 系列 | Xtensa® 双核 240MHz | 4MB/8MB/16MB PSRAM | 🌟 **强烈推荐（原生首选）** | 乐鑫官方 DevKitC-1、合宙 ESP32-S3、YD-ESP32-S3 (双Type-C)、立创开源S3 等 |
+| **经典 ESP32 (WROVER)** | Xtensa® 双核 240MHz | 4MB/8MB PSRAM | 兼容支持 | ESP32-WROVER-B / ESP32-WROVER-E 等带 PSRAM 模组开发板 |
+
+> [!IMPORTANT]
+> **硬件选型说明**：
+> - **强烈推荐使用 ESP32-S3 系列开发板**（建议搭载 8MB/16MB Flash 与 2MB/8MB PSRAM，如常见的 N8R8 / N16R8 规格），可完美流畅运行所有后台 API、大模型诊断与前端流式界面。
+> - **关于 ESP32-C3 / C2**：由于 C3 为单核 RISC-V 架构且普遍无外部扩展 PSRAM（可用内存仅 ~120KB），不足以支撑本套包含 49 个 API 与全套控制台的完整系统，因此**不建议且不支持在 ESP32-C3 上部署运行**。
 
 - **Flash 存储**：支持 **4MB / 8MB / 16MB SPI Flash**（自动动态计算容量与配额）；
-- **PSRAM 内存**：支持 **Octal-SPI / Quad-SPI / 无 PSRAM 版本**（自动管理可用堆内存）；
-- **芯片智能识别**：`deploy.py` 一键部署工具会自动通过硬件串口识别芯片类型，并自动烧录对应的官方固件。
+- **PSRAM 内存**：支持 **Octal-SPI / Quad-SPI PSRAM**（自动管理可用堆内存）；
+- **芯片智能识别**：`deploy.py` 一键部署工具会自动通过硬件串口识别芯片类型，并自动烧录对应的官方 S3 固件。
 
 ---
 
@@ -132,7 +136,7 @@ pip install -r requirements.txt
 
 ### 步骤 2：连接开发板并一键部署
 
-将 ESP32-S3、ESP32-C3 或标准 ESP32 开发板通过 Type-C 数据线连接至电脑 USB 口：
+将 ESP32-S3 开发板通过 Type-C 数据线连接至电脑 USB 口：
 
 ```bash
 # 1. 自动检测串口并部署系统（若开发板已刷有 MicroPython）：

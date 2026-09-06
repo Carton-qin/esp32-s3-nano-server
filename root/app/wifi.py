@@ -4,7 +4,6 @@ import socket
 import machine
 import ubinascii
 import ntptime
-import esp32
 
 class CaptiveDNS:
     def __init__(self, ip="192.168.4.1"):
@@ -80,12 +79,13 @@ class WiFiManager:
         ssid = wifi_cfg.get("ssid", "").strip()
         pwd = wifi_cfg.get("password", "").strip()
 
-        # Start AP with saved config
-        self.start_ap()
-
         if ssid:
             print("[WiFi] Attempting to connect to STA:", ssid)
             self.sta.active(True)
+            try:
+                self.sta.config(pm=0)
+            except Exception:
+                pass
             
             # Check static IP
             if wifi_cfg.get("use_static_ip", False):
@@ -105,16 +105,32 @@ class WiFiManager:
             # Wait up to 15 seconds
             for _ in range(30):
                 if self.sta.isconnected():
+                    try:
+                        self.sta.config(pm=0)
+                    except Exception:
+                        pass
                     self.is_connected = True
                     self.current_ip = self.sta.ifconfig()[0]
-                    self.mode = "STA+AP"
+                    self.mode = "STA"
+                    # 关闭 AP 热点，让无线电与射频带宽 100% 独占 STA，消除共存信道跳频与丢包
+                    try:
+                        self.ap.active(False)
+                    except Exception:
+                        pass
                     print("[WiFi] Connected to STA! IP:", self.current_ip)
                     self.config_mgr.add_log("system", "网络连接", "success", "WiFi (STA) 连接成功，分配 IP: " + self.current_ip, category="system")
                     self.sync_ntp()
                     return True
                 time.sleep(0.5)
 
-        print("[WiFi] STA not connected. AP Mode active for setup.")
+            try:
+                self.sta.disconnect()
+                self.sta.active(False)
+            except Exception:
+                pass
+
+        print("[WiFi] STA not connected. Activating AP rescue hotspot...")
+        self.start_ap()
         return False
 
     def start_ap(self, ssid=None, password=None):
@@ -134,7 +150,8 @@ class WiFiManager:
             print("[WiFi] AP config warning:", e)
 
         try:
-            self.ap.ifconfig(('192.168.4.1', '255.255.255.0', '192.168.4.1', '192.168.4.1'))
+            if self.ap.ifconfig()[0] != '192.168.4.1':
+                self.ap.ifconfig(('192.168.4.1', '255.255.255.0', '192.168.4.1', '192.168.4.1'))
         except Exception:
             pass
 
@@ -197,6 +214,10 @@ class WiFiManager:
         
         # Do NOT shut down AP so the current browser session stays connected!
         self.sta.active(True)
+        try:
+            self.sta.config(pm=0)
+        except Exception:
+            pass
 
         if use_static and static_ip.strip() and gateway.strip():
             print("[WiFi] Configuring Static IP:", static_ip)
@@ -214,6 +235,10 @@ class WiFiManager:
         
         for _ in range(30):
             if self.sta.isconnected():
+                try:
+                    self.sta.config(pm=0)
+                except Exception:
+                    pass
                 self.is_connected = True
                 self.current_ip = self.sta.ifconfig()[0]
                 self.mode = "STA+AP"
@@ -222,6 +247,11 @@ class WiFiManager:
                 return True, self.current_ip
             time.sleep(0.5)
             
+        try:
+            self.sta.disconnect()
+            self.sta.active(False)
+        except Exception:
+            pass
         return False, "连接超时，请检查WiFi密码或确认网络为2.4GHz"
 
     def sync_ntp(self):
@@ -324,11 +354,19 @@ class WiFiManager:
 
                     if not self.sta.active():
                         self.sta.active(True)
+                    try:
+                        self.sta.config(pm=0)
+                    except Exception:
+                        pass
                     self.sta.connect(ssid, pwd)
 
                     for _ in range(24):
                         await asyncio.sleep(0.5)
                         if self.sta.isconnected():
+                            try:
+                                self.sta.config(pm=0)
+                            except Exception:
+                                pass
                             self.is_connected = True
                             self.current_ip = self.sta.ifconfig()[0]
                             print("[WiFi Watchdog] Reconnected successfully! IP:", self.current_ip)
@@ -339,6 +377,11 @@ class WiFiManager:
 
                     if not self.is_connected:
                         print("[WiFi Watchdog] Reconnect attempt failed. Will retry in 30s.")
+                        try:
+                            self.sta.disconnect()
+                            self.sta.active(False)
+                        except Exception:
+                            pass
                 else:
                     self.is_connected = True
             except Exception as e:

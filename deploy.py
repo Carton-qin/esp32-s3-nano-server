@@ -26,7 +26,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 def print_banner():
     print("""
 ============================================================
-   [*] ESP32 / ESP32-S3 / ESP32-C3 Nano-Server 一键部署工具
+       [*] ESP32-S3 Nano-Server 一键部署工具 (Deploy Tool)
 ============================================================
 """)
 
@@ -59,24 +59,21 @@ def run_cmd(cmd, desc=None, check=True):
     return True
 
 def detect_chip(port):
-    """自动通过 esptool 识别连接的芯片架构 (ESP32-S3 / ESP32-C3 / ESP32)"""
+    """自动通过 esptool 识别连接的芯片架构 (ESP32-S3 首选)"""
     print(f"[*] 正在自动检测 {port} 连接的芯片型号...", flush=True)
     cmd = [sys.executable, "-m", "esptool", "--port", port, "chip_id"]
     res = subprocess.run(cmd, capture_output=True, text=True)
     out = (res.stdout + res.stderr).lower()
 
     if "esp32-s3" in out:
-        print("[+] 识别芯片架构: ESP32-S3 (Xtensa 双核)")
+        print("[+] 识别芯片架构: ESP32-S3 (Xtensa 双核 240MHz，原生首选)")
         return "esp32s3"
     elif "esp32-c3" in out:
-        print("[+] 识别芯片架构: ESP32-C3 (RISC-V 单核)")
-        return "esp32c3"
-    elif "esp32-c6" in out:
-        print("[+] 识别芯片架构: ESP32-C6")
-        return "esp32c6"
-    elif "esp32-s2" in out:
-        print("[+] 识别芯片架构: ESP32-S2")
-        return "esp32s2"
+        print("[!] 检测到芯片型号为 ESP32-C3。")
+        print("[!] ⚠️ 架构警告：ESP32-C3 为单核 RISC-V 且无外部 PSRAM（仅 128KB 内存）。")
+        print("[!] ⚠️ 内存与单核性能无法支撑本项目 49 个全套 API 与异步微服务器系统。")
+        print("[!] ⚠️ 强烈推荐使用 ESP32-S3 开发板运行本项目！")
+        sys.exit(1)
     elif "esp32" in out:
         print("[+] 识别芯片架构: ESP32 (经典双核)")
         return "esp32"
@@ -301,14 +298,12 @@ def main():
         bin_file = args.bin
         if not bin_file:
             # 根据侦测到的芯片类型智能匹配
-            if chip_type == "esp32c3":
-                bins = [f for f in os.listdir(".") if f.endswith(".bin") and "C3" in f.upper()]
-            elif chip_type == "esp32s3":
+            if chip_type == "esp32s3":
                 bins = [f for f in os.listdir(".") if f.endswith(".bin") and "S3" in f.upper()]
             elif chip_type == "esp32":
-                bins = [f for f in os.listdir(".") if f.endswith(".bin") and "GENERIC-" in f.upper() and "S3" not in f.upper() and "C3" not in f.upper()]
+                bins = [f for f in os.listdir(".") if f.endswith(".bin") and "GENERIC-" in f.upper() and "S3" not in f.upper()]
             else:
-                bins = [f for f in os.listdir(".") if f.endswith(".bin")]
+                bins = [f for f in os.listdir(".") if f.endswith(".bin") and "S3" in f.upper()]
 
             if bins:
                 bin_file = bins[0]

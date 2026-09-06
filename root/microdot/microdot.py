@@ -666,19 +666,17 @@ class Response:
         self.complete()
 
         try:
-            # status code
+            # status code & headers
             reason = self.reason if self.reason is not None else \
                 ('OK' if self.status_code == 200 else 'N/A')
-            await stream.awrite('HTTP/1.0 {status_code} {reason}\r\n'.format(
-                status_code=self.status_code, reason=reason).encode())
-
-            # headers
+            lines = ['HTTP/1.0 {status_code} {reason}\r\n'.format(
+                status_code=self.status_code, reason=reason)]
             for header, value in self.headers.items():
                 values = value if isinstance(value, list) else [value]
-                for value in values:
-                    await stream.awrite('{header}: {value}\r\n'.format(
-                        header=header, value=value).encode())
-            await stream.awrite(b'\r\n')
+                for v in values:
+                    lines.append('{}: {}\r\n'.format(header, v))
+            lines.append('\r\n')
+            await stream.awrite(''.join(lines).encode())
 
             # body
             if not self.is_head:
@@ -686,6 +684,8 @@ class Response:
                 async for body in iter:
                     if isinstance(body, str):  # pragma: no cover
                         body = body.encode()
+                    if not body:
+                        continue
                     try:
                         await stream.awrite(body)
                     except OSError as exc:  # pragma: no cover
@@ -746,6 +746,9 @@ class Response:
                 buf = response.body.read(response.send_file_buffer_size)
                 if iscoroutine(buf):  # pragma: no cover
                     buf = await buf
+                if not buf:
+                    await self.aclose()
+                    raise StopAsyncIteration
                 if len(buf) < response.send_file_buffer_size:
                     self.i = self.ITER_NO_BODY
                 return buf
@@ -824,6 +827,15 @@ class Response:
         if compressed:
             headers['Content-Encoding'] = compressed \
                 if isinstance(compressed, str) else 'gzip'
+
+        try:
+            import os
+            full_path = filename + file_extension
+            st = os.stat(full_path)
+            headers['Content-Length'] = str(st[6])
+        except Exception:
+            pass
+        headers['Connection'] = 'close'
 
         f = stream or open(filename + file_extension, 'rb')
         return cls(body=f, status_code=status_code, headers=headers)
@@ -1410,15 +1422,11 @@ class Microdot:
         if not req:
             return
 
-        print('[Server] Req:', req.method, req.path)
         res = await self.dispatch_request(req)
-        print('[Server] Res status:', res.status_code)
         try:
             if res != Response.already_handled:  # pragma: no branch
                 await res.write(writer)
-                print('[Server] Res.write done')
             await writer.aclose()
-            print('[Server] Closed')
         except OSError as exc:  # pragma: no cover
             if exc.errno in MUTED_SOCKET_ERRORS:
                 pass

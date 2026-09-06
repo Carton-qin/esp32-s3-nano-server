@@ -5,7 +5,6 @@ import time
 import machine
 import esp32
 import sys
-import urequests
 try:
     import uasyncio as asyncio
 except ImportError:
@@ -22,6 +21,7 @@ def create_app(config_mgr, wifi_mgr, llm_client, notifier, executor, rgb_manager
             status_code=status,
             headers={
                 "Content-Type": "application/json",
+                "Connection": "close",
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Headers": "*",
                 "Access-Control-Allow-Methods": "*"
@@ -49,6 +49,7 @@ def create_app(config_mgr, wifi_mgr, llm_client, notifier, executor, rgb_manager
 
     # 1. Static Web UI (Streamed via send_file, prefer gzip for fast low-memory transfer)
     @app.route('/')
+    @app.route('/index.html')
     async def index(req):
         try:
             accept_enc = req.headers.get('Accept-Encoding', '')
