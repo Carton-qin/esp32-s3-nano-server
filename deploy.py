@@ -205,6 +205,9 @@ def upload_project(port, force=False, only=None):
         # 跳过已被 .mpy 替代的 .py 文件（保留 boot.py, main.py 与 __init__.py）
         if f.endswith(".py") and f not in ("main.py", "boot.py", "__init__.py") and stem_path in mpy_stems:
             continue
+        # 若存在同名 .gz 压缩包（例如 index.html.gz），跳过庞大的未压缩原文件以节省串口传输时间与 Flash 空间
+        if f.endswith(".html") and os.path.exists(local_fp + ".gz"):
+            continue
         rel = os.path.relpath(local_fp, base_dir).replace("\\", "/")
         remote_fp = f":{rel}"
         candidate_queue.append((local_fp, remote_fp, rel))
@@ -262,24 +265,31 @@ def upload_project(port, force=False, only=None):
         size_str = f"{fsize / 1024:.1f} KB" if fsize > 1024 else f"{fsize} B"
         print(f"  [{idx}/{total}] 正在同步 -> {remote_fp} ({size_str}) ...", end="", flush=True)
         t0 = time.time()
-        res = subprocess.run(
-            [sys.executable, "-m", "mpremote", "connect", port, "fs", "cp", local_fp, remote_fp],
-            capture_output=True,
-            text=True
-        )
-        if res.returncode != 0:
+        success_upload = False
+        last_err = ""
+        for attempt in range(2):
+            res = subprocess.run(
+                [sys.executable, "-m", "mpremote", "connect", port, "fs", "cp", local_fp, remote_fp],
+                capture_output=True,
+                text=True
+            )
+            if res.returncode == 0:
+                success_upload = True
+                break
+            else:
+                last_err = res.stderr.strip()
+                time.sleep(1)
+
+        if not success_upload:
             print(" [X] 失败！")
-            print(f"[!] 上传文件 {local_fp} 失败:\n{res.stderr.strip()}")
+            print(f"[!] 上传文件 {local_fp} 失败:\n{last_err}")
             return False
         dt = time.time() - t0
         print(f" 耗时 {dt:.1f}s")
-        # 成功上传后更新缓存
+        # 成功上传后实时更新并保存缓存，保证意外中断后下次能够断点续传
         cached_files[rel] = current_hashes.get(rel, "")
-
-    # 保存最新缓存
-    cache["files"] = cached_files
-    cache["last_deploy_time"] = int(time.time())
-    save_deploy_cache(cache_file, cache)
+        cache["files"] = cached_files
+        save_deploy_cache(cache_file, cache)
 
     # 清理远程设备上已被 .mpy 取代的旧 .py 文件以彻底释放闪存与运行时内存
     clean_script = (
