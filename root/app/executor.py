@@ -107,6 +107,65 @@ def extract_reward(result_msg, response_text):
 
     return None, None
 
+def _clean_html_noise(html_text, max_bytes=30*1024):
+    """
+    轻量快速剔除 HTML 中的 script、style、svg、head、注释等噪音，
+    提取出高密度的有效正文文本，并截取到指定 max_bytes 以内
+    """
+    if not html_text:
+        return ""
+    text = html_text
+    lower = text.lower()
+    
+    noise_tags = [
+        ("<script", "</script>"),
+        ("<style", "</style>"),
+        ("<svg", "</svg>"),
+        ("<head", "</head>"),
+        ("<!--", "-->"),
+    ]
+    
+    for open_tag, close_tag in noise_tags:
+        while True:
+            idx = lower.find(open_tag)
+            if idx == -1:
+                break
+            end_idx = lower.find(close_tag, idx + len(open_tag))
+            if end_idx == -1:
+                text = text[:idx]
+                lower = lower[:idx]
+                break
+            else:
+                end_idx += len(close_tag)
+                text = text[:idx] + " " + text[end_idx:]
+                lower = lower[:idx] + " " + lower[end_idx:]
+            if len(text) <= max_bytes and open_tag not in lower:
+                break
+
+    clean_chars = []
+    in_tag = False
+    for ch in text:
+        if ch == '<':
+            in_tag = True
+            clean_chars.append(' ')
+        elif ch == '>':
+            in_tag = False
+            clean_chars.append(' ')
+        elif not in_tag:
+            clean_chars.append(ch)
+        if len(clean_chars) >= max_bytes * 2:
+            break
+            
+    filtered = "".join(clean_chars)
+    lines = []
+    for line in filtered.split("\n"):
+        line_s = " ".join(line.split())
+        if line_s:
+            lines.append(line_s)
+    
+    res = "\n".join(lines)
+    return res[:max_bytes]
+
 class TaskExecutor:
     def __init__(self, config_mgr, llm_client, notifier, rgb_manager=None):
         self.config_mgr = config_mgr
@@ -426,65 +485,6 @@ class TaskExecutor:
         except Exception as e:
             print("[Executor] Error merging Set-Cookie:", e)
             return False
-
-def _clean_html_noise(html_text, max_bytes=30*1024):
-    """
-    轻量快速剔除 HTML 中的 script、style、svg、head、注释等噪音，
-    提取出高密度的有效正文文本，并截取到指定 max_bytes 以内
-    """
-    if not html_text:
-        return ""
-    text = html_text
-    lower = text.lower()
-    
-    noise_tags = [
-        ("<script", "</script>"),
-        ("<style", "</style>"),
-        ("<svg", "</svg>"),
-        ("<head", "</head>"),
-        ("<!--", "-->"),
-    ]
-    
-    for open_tag, close_tag in noise_tags:
-        while True:
-            idx = lower.find(open_tag)
-            if idx == -1:
-                break
-            end_idx = lower.find(close_tag, idx + len(open_tag))
-            if end_idx == -1:
-                text = text[:idx]
-                lower = lower[:idx]
-                break
-            else:
-                end_idx += len(close_tag)
-                text = text[:idx] + " " + text[end_idx:]
-                lower = lower[:idx] + " " + lower[end_idx:]
-            if len(text) <= max_bytes and open_tag not in lower:
-                break
-
-    clean_chars = []
-    in_tag = False
-    for ch in text:
-        if ch == '<':
-            in_tag = True
-            clean_chars.append(' ')
-        elif ch == '>':
-            in_tag = False
-            clean_chars.append(' ')
-        elif not in_tag:
-            clean_chars.append(ch)
-        if len(clean_chars) >= max_bytes * 2:
-            break
-            
-    filtered = "".join(clean_chars)
-    lines = []
-    for line in filtered.split("\n"):
-        line_s = " ".join(line.split())
-        if line_s:
-            lines.append(line_s)
-    
-    res = "\n".join(lines)
-    return res[:max_bytes]
 
     def _run_ai_digest_task(self, task):
         params = task.get("params", {})
