@@ -11,6 +11,7 @@ import time
 import json
 import argparse
 import subprocess
+import hashlib
 
 if hasattr(sys.stdout, 'reconfigure'):
     try:
@@ -136,30 +137,50 @@ def ensure_mpy_compiled(base_dir):
                     if not os.path.exists(mpy_path) or os.path.getmtime(py_path) > os.path.getmtime(mpy_path):
                         subprocess.run([sys.executable, "-m", "mpy_cross", py_path], capture_output=True)
 
-def upload_project(port):
-    """上传项目源码及静态资源到开发板"""
+def calc_file_hash(filepath):
+    """计算文件的 SHA256 哈希值"""
+    h = hashlib.sha256()
+    try:
+        with open(filepath, "rb") as f:
+            while chunk := f.read(8192):
+                h.update(chunk)
+        return h.hexdigest()
+    except Exception:
+        return ""
+
+def load_deploy_cache(cache_file):
+    """加载本地部署记录缓存"""
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def save_deploy_cache(cache_file, cache_data):
+    """保存本地部署记录缓存"""
+    try:
+        with open(cache_file, "w", encoding="utf-8") as f:
+            json.dump(cache_data, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
+
+def upload_project(port, force=False, only=None):
+    """上传项目源码及静态资源到开发板（支持智能增量同步与单模块指定）"""
     cur_dir = os.path.dirname(os.path.abspath(__file__))
     has_root = os.path.exists(os.path.join(cur_dir, "root"))
     base_dir = os.path.join(cur_dir, "root") if has_root else cur_dir
+    cache_file = os.path.join(cur_dir, ".deploy_cache.json")
 
     # 尝试自动预编译字节码
     ensure_mpy_compiled(base_dir)
 
     print(f"\n[*] 正在连接串口 {port} 并准备上传项目代码...")
-    
-    # 先做一次软复位并暂停执行，确保看门狗不会在上传静态大文件时超时
-    print("[*] 复位开发板进入安全 REPL 状态...")
-    subprocess.run([sys.executable, "-m", "mpremote", "connect", port, "reset"], capture_output=True)
-    time.sleep(1.5)
 
-    # 1. 确保远程文件夹结构就绪
-    remote_dirs = [":app", ":microdot", ":static", ":data", ":data/backups"]
-    for rd in remote_dirs:
-        subprocess.run([sys.executable, "-m", "mpremote", "connect", port, "fs", "mkdir", rd], capture_output=True)
-
-    # 2. 收集本地文件列表（若存在 .mpy，则优先使用 .mpy 并跳过同名 .py 以节省内存）
+    # 1. 收集本地文件列表（若存在 .mpy，则优先使用 .mpy 并跳过同名 .py 以节省内存）
     ignore_files = {
-        "deploy.py", "requirements.txt", "README.md", "LICENSE", ".gitignore"
+        "deploy.py", "requirements.txt", "README.md", "LICENSE", ".gitignore", ".deploy_cache.json"
     }
     ignore_dirs = {".git", ".github", "docs", "scratch", ".system_generated"}
     all_files = []
@@ -177,7 +198,7 @@ def upload_project(port):
         if f.endswith(".mpy"):
             mpy_stems.add(os.path.join(root, os.path.splitext(f)[0]))
 
-    file_queue = []
+    candidate_queue = []
     for root, f in all_files:
         local_fp = os.path.join(root, f)
         stem_path = os.path.splitext(local_fp)[0]
@@ -186,14 +207,57 @@ def upload_project(port):
             continue
         rel = os.path.relpath(local_fp, base_dir).replace("\\", "/")
         remote_fp = f":{rel}"
-        file_queue.append((local_fp, remote_fp, rel))
+        candidate_queue.append((local_fp, remote_fp, rel))
+
+    # 读取部署缓存并比对增量
+    cache = load_deploy_cache(cache_file)
+    cached_files = cache.get("files", {})
+
+    current_hashes = {}
+    changed_queue = []
+    for local_fp, remote_fp, rel in candidate_queue:
+        f_hash = calc_file_hash(local_fp)
+        current_hashes[rel] = f_hash
+
+        if only:
+            only_norm = only.replace("\\", "/").strip("/")
+            if only_norm in rel:
+                changed_queue.append((local_fp, remote_fp, rel))
+        elif force:
+            changed_queue.append((local_fp, remote_fp, rel))
+        else:
+            if rel not in cached_files or cached_files[rel] != f_hash:
+                changed_queue.append((local_fp, remote_fp, rel))
+
+    if not changed_queue:
+        print("[+] ✨ 增量检测：所有核心文件与上次部署完全一致，无需重复上传！")
+        print("[*] 💡 提示：如需强制全量重新覆盖，请使用参数 --all (或 -a)")
+        print("[*] 正在重启开发板确保就绪...")
+        subprocess.run([sys.executable, "-m", "mpremote", "connect", port, "reset"])
+        return True
+
+    if only:
+        print(f"[*] 🎯 定向同步：匹配到 {len(changed_queue)} 个指定文件进行上传 (过滤条件: '{only}'):")
+    elif force:
+        print(f"[*] 🚀 强制全量同步：共 {len(changed_queue)} 个文件开始逐项写入 Flash 闪存:")
+    else:
+        print(f"[*] ⚡ 智能增量更新：检测到 {len(changed_queue)} / {len(candidate_queue)} 个文件发生变动/新增，开始同步:")
+
+    # 先做一次软复位并暂停执行，确保看门狗不会在上传时超时
+    print("[*] 复位开发板进入安全 REPL 状态...")
+    subprocess.run([sys.executable, "-m", "mpremote", "connect", port, "reset"], capture_output=True)
+    time.sleep(1.5)
+
+    # 确保远程文件夹结构就绪
+    remote_dirs = [":app", ":microdot", ":static", ":data", ":data/backups"]
+    for rd in remote_dirs:
+        subprocess.run([sys.executable, "-m", "mpremote", "connect", port, "fs", "mkdir", rd], capture_output=True)
 
     # 将 main.py 挪至队列最末尾
-    file_queue.sort(key=lambda x: (x[2] == "main.py", x[2] == "boot.py", x[2]))
+    changed_queue.sort(key=lambda x: (x[2] == "main.py", x[2] == "boot.py", x[2]))
 
-    total = len(file_queue)
-    print(f"[*] 共发现 {total} 个核心文件，开始逐项写入 Flash 闪存:")
-    for idx, (local_fp, remote_fp, rel) in enumerate(file_queue, 1):
+    total = len(changed_queue)
+    for idx, (local_fp, remote_fp, rel) in enumerate(changed_queue, 1):
         fsize = os.path.getsize(local_fp)
         size_str = f"{fsize / 1024:.1f} KB" if fsize > 1024 else f"{fsize} B"
         print(f"  [{idx}/{total}] 正在同步 -> {remote_fp} ({size_str}) ...", end="", flush=True)
@@ -209,6 +273,13 @@ def upload_project(port):
             return False
         dt = time.time() - t0
         print(f" 耗时 {dt:.1f}s")
+        # 成功上传后更新缓存
+        cached_files[rel] = current_hashes.get(rel, "")
+
+    # 保存最新缓存
+    cache["files"] = cached_files
+    cache["last_deploy_time"] = int(time.time())
+    save_deploy_cache(cache_file, cache)
 
     # 清理远程设备上已被 .mpy 取代的旧 .py 文件以彻底释放闪存与运行时内存
     clean_script = (
@@ -225,7 +296,7 @@ def upload_project(port):
     )
     subprocess.run([sys.executable, "-m", "mpremote", "connect", port, "exec", clean_script], capture_output=True)
 
-    print("\n[*] 全部核心文件同步完成！正在重启开发板...")
+    print(f"\n[*] 全部文件同步完成（已同步 {total} 个文件）！正在重启开发板...")
     subprocess.run([sys.executable, "-m", "mpremote", "connect", port, "reset"])
     print("[+] 部署圆满完成！开发板已重启并运行新系统。")
     return True
@@ -267,6 +338,8 @@ def main():
     parser.add_argument("--flash", "-f", action="store_true", help="是否从零烧录 MicroPython 固件")
     parser.add_argument("--bin", "-b", help="MicroPython 固件路径 (.bin)")
     parser.add_argument("--wifi", nargs=2, metavar=("SSID", "PASSWORD"), help="直接通过 USB 串口写入 WiFi 配置 (例如: --wifi MyWifi 12345678)")
+    parser.add_argument("--all", "-a", action="store_true", help="强制全量重新上传所有核心文件（忽略增量缓存）")
+    parser.add_argument("--only", help="仅上传指定文件或匹配路径的文件 (例如: --only app/server.mpy)")
     args = parser.parse_args()
 
     # 1. 检查串口
@@ -315,8 +388,9 @@ def main():
             print("[!] 固件刷写失败，请确认开发板处于 Bootloader 模式 (按住 BOOT 键插入 USB 或短按 RST)")
             sys.exit(1)
 
-    # 4. 上传源码
-    if not upload_project(port):
+    # 4. 上传源码（若重新刷写固件或指定了 --all，则强制全量上传）
+    force_upload = args.all or args.flash
+    if not upload_project(port, force=force_upload, only=args.only):
         print("[!] 代码部署失败，请检查串口连接或占用情况。")
         sys.exit(1)
 

@@ -32,3 +32,6 @@ ehthumbs.db
 
 # Temporary test scripts
 _temp*
+
+# Deployment cache
+.deploy_cache.json

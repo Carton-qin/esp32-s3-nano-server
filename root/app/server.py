@@ -15,10 +15,6 @@ try:
 except ImportError:
     import requests as urequests
 
-try:
-    import urequests
-except ImportError:
-    import requests as urequests
 
 def create_app(config_mgr, wifi_mgr, llm_client, notifier, executor, rgb_manager=None, scheduler=None):
     app = Microdot()
