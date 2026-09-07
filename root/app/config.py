@@ -32,7 +32,8 @@ DEFAULT_CONFIG = {
         "base_url": "",
         "api_key": "",
         "model": "",
-        "temperature": 0.7
+        "temperature": 0.7,
+        "digest_max_kb": 30
     },
     "llm_history": [],
     "notify": {
@@ -96,6 +97,10 @@ class ConfigManager:
                     c["notify"]["policy"] = DEFAULT_CONFIG["notify"]["policy"]
                 if "power" not in c:
                     c["power"] = DEFAULT_CONFIG["power"]
+                if "llm" not in c:
+                    c["llm"] = DEFAULT_CONFIG["llm"]
+                elif "digest_max_kb" not in c["llm"]:
+                    c["llm"]["digest_max_kb"] = 30
                 if "llm_history" in c and isinstance(c["llm_history"], list):
                     c["llm_history"] = [
                         item for item in c["llm_history"]

@@ -547,11 +547,17 @@ def create_app(config_mgr, wifi_mgr, llm_client, notifier, executor, rgb_manager
         
         if req.method == 'POST':
             data = req.json or {}
+            try:
+                d_kb = int(data.get("digest_max_kb", 30))
+                d_kb = max(5, min(128, d_kb))
+            except Exception:
+                d_kb = 30
             config_mgr.config["llm"] = {
                 "base_url": data.get("base_url", "").strip(),
                 "api_key": data.get("api_key", "").strip(),
                 "model": data.get("model", "deepseek-chat").strip(),
-                "temperature": float(data.get("temperature", 0.7))
+                "temperature": float(data.get("temperature", 0.7)),
+                "digest_max_kb": d_kb
             }
             config_mgr.add_llm_history(
                 data.get("base_url"),

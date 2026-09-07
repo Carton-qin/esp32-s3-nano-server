@@ -427,18 +427,94 @@ class TaskExecutor:
             print("[Executor] Error merging Set-Cookie:", e)
             return False
 
+def _clean_html_noise(html_text, max_bytes=30*1024):
+    """
+    轻量快速剔除 HTML 中的 script、style、svg、head、注释等噪音，
+    提取出高密度的有效正文文本，并截取到指定 max_bytes 以内
+    """
+    if not html_text:
+        return ""
+    text = html_text
+    lower = text.lower()
+    
+    noise_tags = [
+        ("<script", "</script>"),
+        ("<style", "</style>"),
+        ("<svg", "</svg>"),
+        ("<head", "</head>"),
+        ("<!--", "-->"),
+    ]
+    
+    for open_tag, close_tag in noise_tags:
+        while True:
+            idx = lower.find(open_tag)
+            if idx == -1:
+                break
+            end_idx = lower.find(close_tag, idx + len(open_tag))
+            if end_idx == -1:
+                text = text[:idx]
+                lower = lower[:idx]
+                break
+            else:
+                end_idx += len(close_tag)
+                text = text[:idx] + " " + text[end_idx:]
+                lower = lower[:idx] + " " + lower[end_idx:]
+            if len(text) <= max_bytes and open_tag not in lower:
+                break
+
+    clean_chars = []
+    in_tag = False
+    for ch in text:
+        if ch == '<':
+            in_tag = True
+            clean_chars.append(' ')
+        elif ch == '>':
+            in_tag = False
+            clean_chars.append(' ')
+        elif not in_tag:
+            clean_chars.append(ch)
+        if len(clean_chars) >= max_bytes * 2:
+            break
+            
+    filtered = "".join(clean_chars)
+    lines = []
+    for line in filtered.split("\n"):
+        line_s = " ".join(line.split())
+        if line_s:
+            lines.append(line_s)
+    
+    res = "\n".join(lines)
+    return res[:max_bytes]
+
     def _run_ai_digest_task(self, task):
         params = task.get("params", {})
         source_url = params.get("source_url", "").strip()
         prompt = params.get("prompt", "请将以下内容精炼概括为3~5条核心摘要，语言简练客观：").strip()
 
+        # 读取系统配置中的截取上限 (5 ~ 128 KB)
+        llm_cfg = self.config_mgr.config.get("llm", {})
+        try:
+            max_kb = max(5, min(128, int(llm_cfg.get("digest_max_kb", 30))))
+        except Exception:
+            max_kb = 30
+        max_bytes = max_kb * 1024
+
         raw_text = ""
         if source_url:
             resp = None
             try:
-                resp = http_client.get(source_url, timeout=15)
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                }
+                task_headers = params.get("headers", {})
+                if isinstance(task_headers, dict):
+                    headers.update(task_headers)
+
+                print("[Executor] AI Digest fetching:", source_url, "max_kb:", max_kb)
+                resp = http_client.get(source_url, headers=headers, timeout=20)
                 if resp.status_code == 200:
-                    raw_text = resp.text[:3000] # Limit to 3KB to prevent memory exhaustion
+                    raw_text = _clean_html_noise(resp.text, max_bytes=max_bytes)
                 else:
                     return False, "获取订阅源失败 HTTP {}".format(resp.status_code), resp.text[:300]
             except Exception as e:
@@ -446,13 +522,19 @@ class TaskExecutor:
             finally:
                 if resp:
                     resp.close()
+                gc.collect()
         else:
-            raw_text = params.get("raw_content", "无外部订阅源内容")
+            raw_text = params.get("raw_content", "").strip()
 
         messages = [
-            {"role": "system", "content": "你是一个严谨的信息提炼与科技速报分析师。"},
-            {"role": "user", "content": prompt + "\n\n【抓取内容】\n" + raw_text}
+            {"role": "system", "content": "你是一个严谨的信息提炼与科技速报分析师。"}
         ]
+        if raw_text:
+            # 携带抓取正文模式
+            messages.append({"role": "user", "content": prompt + "\n\n【抓取内容】\n" + raw_text})
+        else:
+            # 纯 Agent 模式：大模型自主联网分析与检索，免除单片机爬虫
+            messages.append({"role": "user", "content": prompt})
 
         ok, ai_res = self.llm_client.chat_completion(messages)
         if ok:

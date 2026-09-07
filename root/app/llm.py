@@ -86,6 +86,8 @@ class LLMClient:
         }
         resp = None
         try:
+            import gc
+            gc.collect()
             print("[LLM] Calling chat completion:", chat_url, "model:", model)
             resp = urequests.post(chat_url, headers=headers, data=json.dumps(payload))
             if resp.status_code == 200:
@@ -105,6 +107,11 @@ class LLMClient:
         finally:
             if resp:
                 resp.close()
+            try:
+                import gc
+                gc.collect()
+            except Exception:
+                pass
 
     def diagnose_failure(self, task_name, error_details):
         llm_cfg = self.config_mgr.config.get("llm", {})

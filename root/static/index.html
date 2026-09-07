@@ -265,6 +265,14 @@ input:checked + .slider:before { transform: translateX(20px); }
         </div>
       </div>
 
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">网页抓取正文截取上限: <span id="digestMaxKbDisplay" style="color:#38bdf8; font-weight:bold;">30</span> KB</label>
+          <input type="number" class="form-control" id="llmDigestMaxKb" min="5" max="128" value="30" placeholder="推荐 30~128 KB" oninput="document.getElementById('digestMaxKbDisplay').innerText=this.value">
+          <small style="color:#94a3b8; font-size:0.75rem; display:block; margin-top:4px;">💡 AI 任务抓取外部网页时的正文截取上限 (5 ~ 128 KB)。系统会自动剔除 script/style/svg 等网页噪音，保留高密度有效正文。</small>
+        </div>
+      </div>
+
       <button class="btn btn-primary" onclick="saveLlmConfig()">💾 保存模型配置</button>
     </div>
 
@@ -2140,6 +2148,9 @@ function loadLlmConfig() {
     document.getElementById('llmApiKey').value = c.api_key || '';
     document.getElementById('llmTemp').value = c.temperature || 0.7;
     document.getElementById('tempVal').innerText = c.temperature || 0.7;
+    const maxKb = c.digest_max_kb || 30;
+    document.getElementById('llmDigestMaxKb').value = maxKb;
+    document.getElementById('digestMaxKbDisplay').innerText = maxKb;
     
     currentLlmHistory = res.history || [];
     const hs = document.getElementById('llmHistorySelect');
@@ -2219,7 +2230,8 @@ function saveLlmConfig() {
     base_url: document.getElementById('llmBaseUrl').value.trim(),
     api_key: document.getElementById('llmApiKey').value.trim(),
     model: model,
-    temperature: parseFloat(document.getElementById('llmTemp').value)
+    temperature: parseFloat(document.getElementById('llmTemp').value),
+    digest_max_kb: parseInt(document.getElementById('llmDigestMaxKb').value) || 30
   };
   req('/api/llm/config', {
     method: 'POST',
