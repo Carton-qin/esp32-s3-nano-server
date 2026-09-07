@@ -500,6 +500,7 @@ class TaskExecutor:
         max_bytes = max_kb * 1024
 
         raw_text = ""
+        fallback_reason = ""
         if source_url:
             resp = None
             try:
@@ -515,26 +516,42 @@ class TaskExecutor:
                 resp = http_client.get(source_url, headers=headers, timeout=20)
                 if resp.status_code == 200:
                     raw_text = _clean_html_noise(resp.text, max_bytes=max_bytes)
+                    if not raw_text.strip():
+                        fallback_reason = "单片机抓取到的网页正文为空 (可能依赖前端 JS 动态渲染)"
                 else:
-                    return False, "获取订阅源失败 HTTP {}".format(resp.status_code), resp.text[:300]
+                    fallback_reason = "单片机本地网络请求受阻 (HTTP {})".format(resp.status_code)
             except Exception as e:
-                return False, "抓取订阅源出错: " + str(e), str(e)
+                fallback_reason = "单片机本地抓取异常 ({})".format(str(e))
             finally:
                 if resp:
                     resp.close()
                 gc.collect()
+
+            if fallback_reason:
+                print("[Executor] " + fallback_reason + "，正在自动无缝切换为【云端 AI 联网检索处理模式】...")
         else:
             raw_text = params.get("raw_content", "").strip()
 
         messages = [
-            {"role": "system", "content": "你是一个严谨的信息提炼与科技速报分析师。"}
+            {"role": "system", "content": "你是一个严谨的信息提炼与科技速报分析师。具有强大的学术期刊专刊检索、动态页面解析与要点提炼能力。"}
         ]
-        if raw_text:
-            # 携带抓取正文模式
-            messages.append({"role": "user", "content": prompt + "\n\n【抓取内容】\n" + raw_text})
+        if raw_text and not fallback_reason:
+            # 本地成功抓取并清洗了正文
+            user_content = prompt + "\n\n【抓取内容】\n" + raw_text
+        elif source_url:
+            # 自动降级或直接转云端大模型联网处理
+            hint = "【提示：{}，请通过您的云端联网检索能力直接访问目标网址完成解析】\n".format(fallback_reason) if fallback_reason else ""
+            user_content = (
+                "{}"
+                "目标网址：{}\n\n"
+                "请直接联网访问/检索上述目标网页的最新内容，并严格执行以下要求：\n"
+                "{}"
+            ).format(hint, source_url, prompt)
         else:
-            # 纯 Agent 模式：大模型自主联网分析与检索，免除单片机爬虫
-            messages.append({"role": "user", "content": prompt})
+            # 纯 Prompt 模式
+            user_content = prompt
+
+        messages.append({"role": "user", "content": user_content})
 
         ok, ai_res = self.llm_client.chat_completion(messages)
         if ok:
