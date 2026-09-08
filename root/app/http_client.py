@@ -19,10 +19,30 @@ class HttpResponse:
     def close(self):
         pass
 
-def request(method, url, headers=None, data=None, timeout=15, max_redirects=3):
+def _merge_cookies(cookie_header, set_cookies):
+    cookie_dict = {}
+    if cookie_header:
+        for part in cookie_header.split(";"):
+            part = part.strip()
+            if "=" in part:
+                k, v = part.split("=", 1)
+                cookie_dict[k.strip()] = v.strip()
+    for sc in set_cookies:
+        first = sc.split(";")[0].strip()
+        if "=" in first:
+            k, v = first.split("=", 1)
+            k = k.strip()
+            if k.lower() not in ("path", "domain", "expires", "max-age", "samesite", "secure", "httponly", "priority"):
+                cookie_dict[k] = v.strip()
+    return "; ".join(["{}={}".format(k, v) for k, v in cookie_dict.items()])
+
+def request(method, url, headers=None, data=None, timeout=15, max_redirects=10, max_bytes=65536):
     current_url = url
     current_method = method.upper()
     redirects_left = max_redirects
+    all_set_cookies = []
+
+    req_headers = dict(headers) if headers else {}
 
     while True:
         gc.collect()
@@ -58,7 +78,6 @@ def request(method, url, headers=None, data=None, timeout=15, max_redirects=3):
             raise conn_err
 
         # Prepare body
-        req_headers = dict(headers) if headers else {}
         if data is None:
             body_bytes = b""
         elif isinstance(data, str):
@@ -84,12 +103,12 @@ def request(method, url, headers=None, data=None, timeout=15, max_redirects=3):
         if "user-agent" not in hdr_lower:
             lines.append("User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
         if "accept" not in hdr_lower:
-            lines.append("Accept: application/json, text/plain, text/html, */*")
+            lines.append("Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
         if "accept-encoding" not in hdr_lower:
             lines.append("Accept-Encoding: identity")
 
         for k, v in req_headers.items():
-            if v:
+            if k.lower() != "host" and v:
                 lines.append("{}: {}".format(k, v))
 
         header_bytes = ("\r\n".join(lines) + "\r\n\r\n").encode("utf-8")
@@ -106,7 +125,7 @@ def request(method, url, headers=None, data=None, timeout=15, max_redirects=3):
 
         # Parse Response Headers
         resp_headers = {}
-        set_cookies = []
+        round_set_cookies = []
         while True:
             line = s.readline()
             if not line or line in (b"\r\n", b"\n"):
@@ -118,41 +137,54 @@ def request(method, url, headers=None, data=None, timeout=15, max_redirects=3):
                 hv_clean = hv.strip()
                 resp_headers[hk_lower] = hv_clean
                 if hk_lower == "set-cookie":
-                    set_cookies.append(hv_clean)
+                    round_set_cookies.append(hv_clean)
+                    all_set_cookies.append(hv_clean)
 
         # Handle Redirects (301, 302, 303, 307, 308)
         if status_code in (301, 302, 303, 307, 308) and "location" in resp_headers and redirects_left > 0:
             s.close()
-            new_location = resp_headers["location"]
-            if new_location.startswith("/"):
+            new_location = resp_headers["location"].strip()
+            if new_location.startswith("//"):
+                new_location = proto + ":" + new_location
+            elif new_location.startswith("/"):
                 new_location = "{}://{}{}".format(proto, host_part, new_location)
+            elif not new_location.startswith("http://") and not new_location.startswith("https://"):
+                base_dir = path.rsplit("/", 1)[0]
+                new_location = "{}://{}{}/{}".format(proto, host_part, base_dir, new_location)
+
+            print("[HttpClient] Redirecting ({}) -> {}".format(status_code, new_location))
             current_url = new_location
             redirects_left -= 1
             if status_code in (302, 303) and current_method != "GET":
                 current_method = "GET"
                 data = None
+
+            # Merge Set-Cookie into next request headers
+            if round_set_cookies:
+                cookie_key = "Cookie" if "Cookie" in req_headers else "cookie"
+                req_headers[cookie_key] = _merge_cookies(req_headers.get(cookie_key, ""), round_set_cookies)
             continue
 
-        # Read Body (limit to 12KB to prevent MicroPython OOM)
+        # Read Body (limit to max_bytes to prevent MicroPython OOM)
         content_len = int(resp_headers.get("content-length", -1))
         body = b""
-        max_bytes = 12288
+        read_limit = max_bytes
         if content_len >= 0:
-            bytes_to_read = min(content_len, max_bytes)
+            bytes_to_read = min(content_len, read_limit)
             while len(body) < bytes_to_read:
                 chunk = s.read(min(1024, bytes_to_read - len(body)))
                 if not chunk:
                     break
                 body += chunk
         else:
-            while len(body) < max_bytes:
+            while len(body) < read_limit:
                 chunk = s.read(1024)
                 if not chunk:
                     break
                 body += chunk
 
         s.close()
-        return HttpResponse(status_code, resp_headers, body.decode("utf-8", "ignore"), set_cookies=set_cookies)
+        return HttpResponse(status_code, resp_headers, body.decode("utf-8", "ignore"), set_cookies=all_set_cookies)
 
 def get(url, headers=None, **kwargs):
     return request("GET", url, headers=headers, **kwargs)

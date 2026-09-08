@@ -51,7 +51,7 @@ class TaskScheduler:
         print("[Scheduler] Background scheduler loop started.")
         # 开机静默初始化：先标记当前时间，确保断电上电或重启时，绝对不会立刻执行任何任务
         init_epoch = time.time()
-        tm = time.localtime(init_epoch)
+        tm = time.localtime(init_epoch + 8 * 3600)
         init_min_sig = "{:04d}{:02d}{:02d}{:02d}{:02d}".format(
             tm[0], tm[1], tm[2], tm[3], tm[4]
         )
@@ -76,7 +76,8 @@ class TaskScheduler:
 
     async def _check_and_run_tasks(self):
         now_epoch = time.time()
-        tm = time.localtime(now_epoch)
+        # 统一基准为北京时间 (UTC+8)，确保 Cron、Daily 与 Window 调度严格按国内时间触发
+        tm = time.localtime(now_epoch + 8 * 3600)
         current_minute_sig = "{:04d}{:02d}{:02d}{:02d}{:02d}".format(
             tm[0], tm[1], tm[2], tm[3], tm[4]
         )

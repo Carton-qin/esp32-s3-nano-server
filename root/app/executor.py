@@ -513,7 +513,7 @@ class TaskExecutor:
                     headers.update(task_headers)
 
                 print("[Executor] AI Digest fetching:", source_url, "max_kb:", max_kb)
-                resp = http_client.get(source_url, headers=headers, timeout=20)
+                resp = http_client.get(source_url, headers=headers, timeout=25, max_redirects=10, max_bytes=max_bytes)
                 if resp.status_code == 200:
                     raw_text = _clean_html_noise(resp.text, max_bytes=max_bytes)
                     if not raw_text.strip():
